@@ -1,0 +1,8 @@
+# Archivos de configuración de Qt Creator
+*.user
+*.user.*
+CMakeUserPresets.json
+
+# Carpetas de compilación (Build)
+build*/
+*.orig
