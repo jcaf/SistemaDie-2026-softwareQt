@@ -1,4 +1,5 @@
-/* 17/09/2025
+/* 23/06/2026 - cambios nuevos
+ * 17/09/2025
  * C:\Qt\6.9.2\mingw_64\bin>windeployqt.exe Y:\Documents\PROYECTOS\ATMEL\C\Wilfredo\SistemaDiE-2025\software\SistemaDiE\build\Desktop_Qt_6_9_2_MinGW_64_bit-Release\output\SistemaDiE.exe
  *
  * C:\Qt\6.8.1\mingw_64\bin>windeployqt.exe C:\Users\NEFER\OneDrive\Documentos\untitled\build\Desktop_Qt_6_8_1_MinGW_64_bit-Release\output\untitled.exe
