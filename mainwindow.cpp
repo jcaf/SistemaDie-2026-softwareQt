@@ -34,7 +34,7 @@ using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
 
-#define TABLA_NUMBER_FILAS_ADICIONALES 5//filas adicionales a las que se crean
+#define TABLA_NUMBER_FILAS_ADICIONALES 0//5//filas adicionales a las que se crean
 
 void MainWindow::buttons_disable()
 {
@@ -331,30 +331,64 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
         break;
 
         case USB_DATACODE_INTERVALO_COMPLETO:
+        {
+            bool foundit = false;
+            double recorridoactual = ui->recorridoActual->value();
 
-            if (tabla_numfila < TABLA_NUM_FILAS_TOTALES)
+            for (int i=0; i<tabla_numfila; i++)
             {
-                tabla_update_cell_posicion(tabla_numfila);
-                tabla_numfila++;
-            }
-            //
-            if (tabla_numfila < TABLA_NUM_FILAS_TOTALES)
-            {
-                ui->pushButton_Inicio->setEnabled(true);
-            }
-            else
-            {
-                ui->pushButton_Inicio->setEnabled(false);
+                QTableWidgetItem *item = tableWidget->item(i, 0);
+                if (item)
+                {
+                    //QString qstr_item = tableWidget->item(i, 0)->text();
+                    QString qstr_item = item->text();
+                    double value = qstr_item.toDouble();
+
+                    if (value == recorridoactual)//existe
+                    {
+                        // Resaltar la fila actual
+                        tableWidget->selectRow(i);
+                        tableWidget->setFocus(Qt::OtherFocusReason);
+                        foundit = true;
+
+                        ui->pushButton_Inicio->setEnabled(true);
+
+                        break;
+                    }
+                }
             }
 
+            if ( (tabla_numfila < TABLA_NUM_FILAS_TOTALES) && (!foundit))
+            {
+
+                QString str_recorrido_actual = QString::number(recorridoactual,'f',2);
+                QTableWidgetItem* text = new QTableWidgetItem();
+                text->setText(str_recorrido_actual);
+
+                    tableWidget->setItem(tabla_numfila,0, text);
+                    tableWidget_columna_setEnabled(0,false);
+                    // Resaltar la fila actual
+                    tableWidget->selectRow(tabla_numfila);
+                    tableWidget->setFocus(Qt::OtherFocusReason);
+
+                    ui->pushButton_Inicio->setEnabled(true);
+
+                    tabla_numfila++;
+            }
 
             ui->pushButton_Pause->setEnabled(false);
             ui->pushButton_Parar->setEnabled(true);
-            led_motor->setState(false);
+
+            //nuevo
+            if (!ui->pushButton_Inicio->isEnabled() )//added
+            {
+                led_motor->setState(false);
+            }
 
             qDebug()<<"USB_DATACODE_INTERVALO_COMPLETO: "<<Qt::endl;
 
         break;
+        }
         case USB_DATACODE_SET_SELECTOR:
             payload_i = atoi(USB_payload_char);
 
@@ -391,7 +425,7 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
 
             break;
 
-    default: break;
+        default: break;
     }
 }
 
@@ -570,7 +604,9 @@ MainWindow::MainWindow(QWidget *parent)
     tableWidget->setRowCount(0);
     tableWidget->setColumnCount(TABLA_NUMBER_COLUMNAS);
 
-
+    //added 2026 Con esto, al llamar a selectRow() se resaltará toda la fila.
+    tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);
 
     QStringList headers;
 
@@ -932,7 +968,9 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     ui->recorridoTotal->setEnabled(false);
     ui->intervalo->setEnabled(false);
     ui->pushButton_Reset->setEnabled(false);
-    ui->pushButton_Motor->setEnabled(false);
+
+//    ui->pushButton_Motor->setEnabled(false); //2026
+
     //
     // ui->radioButton_SP->setEnabled(false);
     // ui->radioButton_NC->setEnabled(false);
@@ -944,7 +982,11 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     ui->pushButton_Parar->setEnabled(true);
     //
     ui->pushButton_Reset->setEnabled(false);
-    ui->pushButton_Motor->setChecked(false);
+
+
+    //ui->pushButton_Motor->setChecked(false);
+    //added 2026
+    ui->pushButton_Motor->setChecked(true);
 
     if (ui->pushButton_Motor->isChecked())
     {
@@ -1127,8 +1169,12 @@ void MainWindow::on_pushButton_Inicio_clicked()
     ui->pushButton_Inicio->setEnabled(false);
     ui->pushButton_Pause->setEnabled(true);
     ui->pushButton_Parar->setEnabled(true);
-
     led_motor->setState(true);
+
+    //new added 2026
+    ui->pushButton_Motor->setChecked(false);
+    ui->pushButton_Motor->setEnabled(false);
+
 
     USB_send_data_integer(USB_DATACODE_SET_EXECUTION, INICIO);
     //
