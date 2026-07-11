@@ -644,6 +644,18 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onCellChanged,
             Qt::UniqueConnection);
 
+
+    //+------------------------- Session manager 2026
+    //-------------------------------------------------
+    m_timerAutoSave = new QTimer(this);
+    m_timerAutoSave->setSingleShot(true);
+    connect(m_timerAutoSave,
+            &QTimer::timeout,
+            this,
+            &MainWindow::GuardarSesion);
+    //-------------------------------------------------
+    ConfigurarAutoSave();
+    //----------------------------+ Session manager 2026
 }
 
 MainWindow::~MainWindow()
@@ -1313,3 +1325,115 @@ void MainWindow::on_pushButton_Exportar_clicked()
     }
 }
 
+//---------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------
+
+bool m_restaurandoSesion = false;
+bool m_sesionModificada = false;
+
+void MainWindow::onEstadoModificado()
+{
+    if (m_restaurandoSesion)
+    {
+        return;
+    }
+}
+
+
+struct SessionData
+{
+    int version = 1;
+    Configuracion config;
+    Estado estado;
+    QVector<FilaMedicion> tabla;
+};
+
+void MainWindow::GuardarSesion()
+{
+    qDebug() << "guardando sesion";
+    if (!m_sesionModificada)
+        return;
+
+    SessionData data = ObtenerSessionData();
+    if (EscribirArchivoSesion(data.ToJson()))
+    {
+        m_sesionModificada = false;
+
+        qDebug() << "Sesin guardada";
+    }
+}
+//----------------------------------------------------
+void MainWindow::NotificarCambioEstado()
+{
+    if (m_restaurandoSesion)
+        return;  // Ignora cambios provocados por el propio programa
+
+
+    m_sesionModificada = true;
+    m_timerAutoSave->start(2000);   //reinicia el temporizador
+
+    qDebug()<< "Estado modificado";
+}
+//----------------------------------------------------
+SessionData MainWindow::ObtenerSessionData()
+{
+    SessionData data;
+
+    data.config.recorridoTotal = ui->recorridoTotal->value();
+    data.config.intervalo = ui->intervalo->value();
+    //data.config.longitudArco =
+    //data.config.pulsosEncoder =
+
+    //desarrollar los if correspondientes
+    //if ui->radioButton_SP->isChecked()
+    //data.config.tipoRegistro =
+
+    data.estado.recorridoActual = ui->recorridoActual->value();
+    data.estado.motorActivo = ui->pushButton_Motor->isChecked();
+
+    //recuperar todas
+    for (int fila = 0; fila<tableWidget->rowCount(); fila++)
+    {
+        FilaMedicion registro;
+        //registro.posicion = Valor
+
+        data.tabla.append(registro);
+    }
+
+    return data;
+
+}
+//----------------------------------------------------
+void MainWindow::AplicarSessionData(const SessionData &data)
+{
+    switch (data.config.tipoRegistro)
+    {
+        case TipoRegistro::SP:
+            ui->radioButton_SP->setChecked(true);
+            break;
+
+        case TipoRegistro::NC:
+            ui->radioButton_NC->setChecked(true);
+        //completar
+
+    }
+
+    /*
+     * for(int fila=0;
+    fila<data.tabla.size();
+    fila++)
+{
+    const FilaMedicion &registro =
+            data.tabla[fila];
+
+    ...
+
+EscribirValorTabla(fila,
+                   COL_POSICION,
+                   registro.posicion);
+*/
+}
+
+}

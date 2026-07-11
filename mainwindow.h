@@ -14,6 +14,10 @@
 #include "config.h"
 #include <QTimer>
 
+////////////////2026
+#include "sessiondata.h"
+///////////////////////
+
 //////////////////////////////////////////////////////////
 #define USB_DATACODE_TOKEN_BEGIN '@'
 #define USB_DATACODE_TOKEN_END '\r'
@@ -124,6 +128,10 @@ private slots:
     bool usbport_available();
 
     void onCellChanged(int row, int column);
+
+    //////////////////////////////////////////2026
+    void GuardarSesion();
+    //////////////////////////////////////////
 private:
     Ui::MainWindow *ui;
 
@@ -150,5 +158,13 @@ private:
     int tabla_numfila;
     int TABLA_NUM_FILAS_TOTALES;
     float RECORRIDOTOTAL;
+
+    /////////////////////////////////////////////////////////////////////2026
+    void ConfigurarAutoSave();
+    QTimer *m_timerAutoSave;
+    //
+    SessionData ObtenerSessionData();
+    void AplicarSessionData(const SesssionData &data);
+    /// /////////////////////////////////////////////////////////////////////
 };
 #endif // MAINWINDOW_H
