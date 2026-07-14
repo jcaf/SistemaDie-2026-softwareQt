@@ -2,6 +2,11 @@
 #define SESSIONDATA_H
 
     #include <QVector>
+    //added x QJson
+    #include <QJsonObject>
+    #include <QJsonArray>
+    #include <QJsonDocument>
+    #include <QFile>
 
     enum class TipoRegistro
     {
@@ -49,5 +54,12 @@
         Configuracion config;
         Estado estado;
         QVector<FilaMedicion> tabla;
+
+        //add:
+        QJsonObject toJson() const;
+        bool fromJson(const QJsonObject&);
+        void clear();
+        bool isEmpty() const;
+        //
     };
 #endif // SESSIONDATA_H

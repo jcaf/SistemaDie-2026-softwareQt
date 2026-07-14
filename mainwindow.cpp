@@ -1357,6 +1357,7 @@ void MainWindow::GuardarSesion()
         return;
 
     SessionData data = ObtenerSessionData();
+
     if (EscribirArchivoSesion(data.ToJson()))
     {
         m_sesionModificada = false;
@@ -1436,4 +1437,82 @@ EscribirValorTabla(fila,
 */
 }
 
+//+++++++++++++++++++++++++++++++++++++++++
+
+/*
+ * Json solo entiende: texto, numero, boolean, array, objeto
+ */
+QString TipoRegistroToString(TipoRegistro tipo)
+{
+    switch (tipo)
+    {
+        case TipoRegistro::SP: return "SP";
+        case TipoRegistro::NC: return "NC";
+        case TipoRegistro::NL: return "NL";
+        case TipoRegistro::L: return "L";
+        default: return "SP";
+    }
 }
+
+QJsonObject SessionData::toJson() const
+{
+    QJsonObject root;
+    root["version"] = version;//jala a su variable miembro
+    //-----------------------------
+    QJsonObject configJson;
+    configJson["recorridoTotal"] = config.recorridoTotal;
+    configJson["intervalo"] = config.intervalo;
+    configJson["pulsosEncoder"] = config.pulsosEncoder;
+    configJson["longitudArco"] = config.longitudArco;
+
+    configJson["tipoRegistro"] = TipoRegistroToString(config.tipoRegistro);
+    //-----------------------------
+
+    QJsonObject estadoJson;
+    estadoJson["recorridoActual"] = estado.recorridoActual;
+    estadoJson["filaActual"] = estado.filaActual;
+    estadoJson["motorActivo"] = estado.motorActivo;
+    //estadoJson["encoderActual"] = estado.encoderActual;
+
+    //
+    QJsonArray tablaJson;
+
+    //range-based for "Recorre todos los elementos de la colección."
+    for (const FilaMedicion &fila : tabla)
+    {
+        QJsonObject obj;
+        obj["posicion"] = fila.posicion;
+        obj["corriente"] = fila.corriente;
+        obj["sp"] = fila.sp;
+        obj["vnc"] = fila.vnc;
+        obj["vnl"] = fila.vnl;
+        obj["rnc"] = fila.rnc;
+        obj["rnl"] = fila.rnl;
+
+        tablaJson.append(obj);
+    }
+
+    root["config"] = configJson;
+    root["estado"] = estadoJson;
+    root["tabla"] = tablaJson;
+
+    return root;
+}
+#include <QStandardPaths>
+bool MainWindow::EscribirArchivoSesion(const QJsonObject &root)
+{
+    QString ruta = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+
+    QDir().mkpath(ruta);
+    QFile file (ruta + "/session.json");
+
+    if (!file.open(QIODevice::WriteOnly))
+        return false;
+
+    QJsonDocument documento(root);
+    file.write(documento.toJson(QJsonDocument::Indented));
+    file.close();
+
+    return true;
+}
+
