@@ -39,10 +39,7 @@ using namespace OpenXLSX;
 
 void MainWindow::buttons_disable()
 {
-    // ui->radioButton_SP->setEnabled(false);
-    // ui->radioButton_NC->setEnabled(false);
-    // ui->radioButton_NL->setEnabled(false);
-    // ui->radioButton_L->setEnabled(false);
+
 
     ui->pushButton_Reset->setEnabled(false);
     ui->pushButton_Motor->setEnabled(false);
@@ -57,10 +54,6 @@ void MainWindow::buttons_disable()
 }
 void MainWindow::buttons_enable()
 {
-    // ui->radioButton_SP->setEnabled(true);
-    // ui->radioButton_NC->setEnabled(true);
-    // ui->radioButton_NL->setEnabled(true);
-    // ui->radioButton_L->setEnabled(true);
 
     ui->pushButton_Reset->setEnabled(true);
     ui->pushButton_Motor->setEnabled(true);
@@ -80,7 +73,7 @@ bool MainWindow::usbport_available(void)
 {
     usbCDC_is_available = false;
     usbCDC_port_name = "";
-    //usbCDC = new QSerialPort;
+
 
     //+- Solo para depurar
     //qDebug()<< "number of available ports "<< QSerialPortInfo::availablePorts().length();
@@ -112,10 +105,8 @@ bool MainWindow::usbport_available(void)
             {
                 usbCDC_is_available = true;
                 usbCDC_port_name  =serialPortInfo.portName();
-
                 // qDebug()<< usbCDC_port_name;
                 // qDebug()<<"puerto encontrado";
-
                 //usbport_status = true;
                 usbport_status_temp = true;
             }
@@ -136,8 +127,7 @@ bool MainWindow::usbport_available(void)
 
         if (usbport_status == true)
         {
-            usbCDC = new QSerialPort;
-            qDebug()<< "usbCDC instanciado!";
+            //usbCDC = new QSerialPort; //bug... se traslada directo al constructor pero con this
 
             usbCDC->setPortName(usbCDC_port_name);
             //usbCDC->open(QSerialPort::WriteOnly);
@@ -155,7 +145,8 @@ bool MainWindow::usbport_available(void)
             usbCDC->setFlowControl(QSerialPort::NoFlowControl);
             //
 
-            QObject::connect(usbCDC, SIGNAL(readyRead()), this, SLOT(readSerial()));
+            //esta conexion solo debi hacerlo 1 sola vez, este bug tamb. se corrige
+            //QObject::connect(usbCDC, SIGNAL(readyRead()), this, SLOT(readSerial()));
 
             //ui->status->setText("Conexión OK: Tarjeta de control encontrado");
             qDebug() << "Conexión OK: Tarjeta de control encontrado";
@@ -170,26 +161,13 @@ bool MainWindow::usbport_available(void)
         }
         else
         {
-            // if (usbCDC->isOpen())
-            // {
-            //     usbCDC->close();
-            // }
-            /*
-             * En usbport_available() creas un nuevo QSerialPort cada vez que detectas conexión:
-             * De lo contrario puedes dejar un descriptor abierto en el SO o incluso un dangling pointer si se intenta acceder después.
-             */
-
-            if (usbCDC)
-            {
+            //if (usbCDC)//ya no es necesario preguntar si el puntero es diferente de null porque nunca lo debi setear asi
+            //{
                 if (usbCDC->isOpen())
                 {
                     usbCDC->close();
                 }
-                delete(usbCDC);
-                usbCDC = nullptr;
-            }
-
-            //delete(usbCDC);//bug fixed 1
+            //}
 
             //QMessageBox::warning(this, "Port error", "Tarjeta de control no encontrado");
             //ui->status->setText("Port error, Tarjeta de control no encontrado");
@@ -204,74 +182,6 @@ bool MainWindow::usbport_available(void)
     return usbCDC_is_available;
 }
 
-/*
-bool MainWindow::usbport(void)
-{
-    usbCDC_is_available = false;
-    usbCDC_port_name = "";
-    usbCDC = new QSerialPort;
-
-    //+- Solo para depurar
-    qDebug()<< "number of available ports "<< QSerialPortInfo::availablePorts().length();
-    foreach(const QSerialPortInfo &serialPortInfo, QSerialPortInfo::availablePorts())
-    {
-        qDebug()<< "Has vendor ID" << serialPortInfo.hasVendorIdentifier();
-        if (serialPortInfo.hasVendorIdentifier()){
-            qDebug()<< "Vendor id"<< serialPortInfo.vendorIdentifier();
-        }
-
-        qDebug()<< "Has product ID" << serialPortInfo.hasProductIdentifier();
-        if (serialPortInfo.hasProductIdentifier())
-        {
-            qDebug()<< "Product ID" << serialPortInfo.productIdentifier();
-        }
-    }
-    //+-
-    foreach (const QSerialPortInfo &serialPortInfo, QSerialPortInfo::availablePorts())
-    {
-        if (serialPortInfo.hasProductIdentifier() && serialPortInfo.hasVendorIdentifier())
-        {
-            if ( (serialPortInfo.productIdentifier() == usbCDC_product_id) && (serialPortInfo.vendorIdentifier() == usbCDC_vendor_id) )
-            {
-                usbCDC_is_available = true;
-                usbCDC_port_name  =serialPortInfo.portName();
-                qDebug()<< usbCDC_port_name;
-            }
-        }
-    }
-    //+-
-    if (usbCDC_is_available)
-    {
-        usbCDC->setPortName(usbCDC_port_name);
-        //usbCDC->open(QSerialPort::WriteOnly);
-        usbCDC->open(QSerialPort::ReadWrite);
-        //usbCDC->open(QSerialPort::ReadOnly);//ok x lecturas
-        //usbCDC->setBaudRate(QSerialPort::Baud38400);
-        //usbCDC->setBaudRate(QSerialPort::Baud115200);
-        //usbCDC->setBaudRate(230400);
-        usbCDC->setBaudRate(250000);
-        //usbCDC->setBaudRate(9600);
-
-        usbCDC->setDataBits(QSerialPort::Data8);
-        usbCDC->setParity(QSerialPort::NoParity);
-        usbCDC->setStopBits(QSerialPort::OneStop);
-        usbCDC->setFlowControl(QSerialPort::NoFlowControl);
-        //
-        QObject::connect(usbCDC, SIGNAL(readyRead()), this, SLOT(readSerial()));
-
-        //ui->status->setText("Conexión OK: Tarjeta de control encontrado");
-        qDebug() << "Conexión OK: Tarjeta de control encontrado";
-        return true;
-    }
-    else
-    {
-        QMessageBox::warning(this, "Port error", "Tarjeta de control no encontrado");
-        //ui->status->setText("Port error, Tarjeta de control no encontrado");
-        qDebug() << "Port error, Tarjeta de control no encontrado";
-        return false;
-    }
-}
-*/
 void MainWindow::tabla_update_cell_posicion(int tabla_numfila_actual)
 {
     QString str_recorrido_actual = QString::number(ui->recorridoActual->value(),'f',2);
@@ -617,9 +527,11 @@ MainWindow::MainWindow(QWidget *parent)
 
     tableWidget->setHorizontalHeaderLabels(headers);
 
-
-    led_motor = new LedIndicator();
-    led_enlace = new LedIndicator();
+    //bug fixed 2026
+    usbCDC = new QSerialPort(this);
+    QObject::connect(usbCDC, SIGNAL(readyRead()), this, SLOT(readSerial()));
+    led_motor = new LedIndicator(this);//bug fixed, add this
+    led_enlace = new LedIndicator(this);//bug fixed, add this
 
     ui->gridLayoutLedMotor->addWidget(led_motor,1,0);
     ui->gridLayoutLedEnlace->addWidget(led_enlace,1,0);
@@ -667,18 +579,20 @@ MainWindow::~MainWindow()
     //Bug fixed 5
     /*Pero nunca liberas usbCDC, timer, tableWidget, ni los LedIndicator. Esto es una fuga de memoria
      * */
-    if (usbCDC)
-    {
-        if (usbCDC->isOpen())
-        {
-            usbCDC->close();
-        }
-        delete usbCDC;
-    }
+    // if (usbCDC)
+    // {
+    //     if (usbCDC->isOpen())
+    //     {
+    //         usbCDC->close();
+    //     }
+    //     delete usbCDC;
+    // }
+    // delete led_motor;
+    // delete led_enlace;
+
     delete timer;
     delete tableWidget;
-    delete led_motor;
-    delete led_enlace;
+
 }
 
 void MainWindow::on_actionConstantes_triggered()

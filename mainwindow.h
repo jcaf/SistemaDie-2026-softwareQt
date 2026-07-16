@@ -81,7 +81,7 @@ public:
 
     bool usbport(void);
 
-    QSerialPort *usbCDC;
+    QSerialPort *usbCDC = nullptr;
 
     void USB_send_data_float(char datacode, float payload0);//al enviar
 
@@ -153,8 +153,8 @@ private:
     void tableWidget_enable_for_NL();
     void tableWidget_enable_for_L();
 
-    LedIndicator *led_motor;
-    LedIndicator *led_enlace;
+    LedIndicator *led_motor = nullptr;
+    LedIndicator *led_enlace = nullptr;
     int tabla_numfila;
     int TABLA_NUM_FILAS_TOTALES;
     float RECORRIDOTOTAL;
