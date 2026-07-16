@@ -30,6 +30,7 @@
 #include <QFileDialog>
 #include <QString>
 #include <OpenXLSX.hpp>
+#include <QStandardPaths>
 using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
@@ -136,6 +137,7 @@ bool MainWindow::usbport_available(void)
         if (usbport_status == true)
         {
             usbCDC = new QSerialPort;
+            qDebug()<< "usbCDC instanciado!";
 
             usbCDC->setPortName(usbCDC_port_name);
             //usbCDC->open(QSerialPort::WriteOnly);
@@ -1329,41 +1331,21 @@ void MainWindow::on_pushButton_Exportar_clicked()
 //---------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------
-
 bool m_restaurandoSesion = false;
 bool m_sesionModificada = false;
 
-void MainWindow::onEstadoModificado()
+void MainWindow::ConfigurarAutoSave()
 {
-    if (m_restaurandoSesion)
+    foreach (QDoubleSpinBox *spin, findChildren<QDoubleSpinBox*>() )
     {
-        return;
+        connect(spin,
+                QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+                this,
+                //&MainWindow::onEstadoModificado);
+                &MainWindow::NotificarCambioEstado);
     }
-}
+    //
 
-
-struct SessionData
-{
-    int version = 1;
-    Configuracion config;
-    Estado estado;
-    QVector<FilaMedicion> tabla;
-};
-
-void MainWindow::GuardarSesion()
-{
-    qDebug() << "guardando sesion";
-    if (!m_sesionModificada)
-        return;
-
-    SessionData data = ObtenerSessionData();
-
-    if (EscribirArchivoSesion(data.ToJson()))
-    {
-        m_sesionModificada = false;
-
-        qDebug() << "Sesin guardada";
-    }
 }
 //----------------------------------------------------
 void MainWindow::NotificarCambioEstado()
@@ -1371,11 +1353,34 @@ void MainWindow::NotificarCambioEstado()
     if (m_restaurandoSesion)
         return;  // Ignora cambios provocados por el propio programa
 
-
     m_sesionModificada = true;
     m_timerAutoSave->start(2000);   //reinicia el temporizador
 
     qDebug()<< "Estado modificado";
+}
+// void MainWindow::onEstadoModificado()
+// {
+//     if (m_restaurandoSesion)
+//     {
+//         return;
+//     }
+// }
+
+void MainWindow::GuardarSesion()
+{
+    qDebug() << "guardando sesion";
+
+    if (!m_sesionModificada)
+        return;
+
+    SessionData data = ObtenerSessionData();
+
+    if (EscribirArchivoSesion(data.toJson()) )
+    {
+        m_sesionModificada = false;
+
+        qDebug() << "Sesin guardada";
+    }
 }
 //----------------------------------------------------
 SessionData MainWindow::ObtenerSessionData()
@@ -1498,7 +1503,7 @@ QJsonObject SessionData::toJson() const
 
     return root;
 }
-#include <QStandardPaths>
+
 bool MainWindow::EscribirArchivoSesion(const QJsonObject &root)
 {
     QString ruta = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -1515,4 +1520,3 @@ bool MainWindow::EscribirArchivoSesion(const QJsonObject &root)
 
     return true;
 }
-

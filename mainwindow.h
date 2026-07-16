@@ -164,7 +164,11 @@ private:
     QTimer *m_timerAutoSave;
     //
     SessionData ObtenerSessionData();
-    void AplicarSessionData(const SesssionData &data);
+    void AplicarSessionData(const SessionData &data);
+
+    void onEstadoModificado();
+    void NotificarCambioEstado();
+    bool EscribirArchivoSesion(const QJsonObject &root);
     /// /////////////////////////////////////////////////////////////////////
 };
 #endif // MAINWINDOW_H
