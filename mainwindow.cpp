@@ -1255,10 +1255,116 @@ void MainWindow::ConfigurarAutoSave()
         connect(spin,
                 QOverload<double>::of(&QDoubleSpinBox::valueChanged),
                 this,
-                //&MainWindow::onEstadoModificado);
                 &MainWindow::NotificarCambioEstado);
     }
     //
+    /*foreach (QRadioButton *radio, findChildren<QRadioButton*>() )
+    {
+        connect(radio,
+                &QRadioButton::toggled,
+                this,
+                &MainWindow::NotificarCambioEstado);
+    }*/
+    foreach (QRadioButton *radio, findChildren<QRadioButton*>())
+    {
+        connect(radio,
+                &QRadioButton::toggled,
+                this,
+                [this](bool checked)
+                {
+                    if (checked)
+                        NotificarCambioEstado();
+                });
+    }
+
+    /*
+    foreach(QLineEdit *edit,
+             findChildren<QLineEdit*>())
+    {
+        connect(edit,
+                &QLineEdit::editingFinished,
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+*/
+    /*
+     *  //-------------------------------------------------
+    // Todos los QSpinBox
+    //-------------------------------------------------
+
+    foreach(QSpinBox *spin,
+            findChildren<QSpinBox*>())
+    {
+        connect(spin,
+                QOverload<int>::of(&QSpinBox::valueChanged),
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+
+    //-------------------------------------------------
+    // Todos los QLineEdit
+    //-------------------------------------------------
+
+    foreach(QLineEdit *edit,
+            findChildren<QLineEdit*>())
+    {
+        connect(edit,
+                &QLineEdit::editingFinished,
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+
+    //-------------------------------------------------
+    // Todos los QRadioButton
+    //-------------------------------------------------
+
+    foreach(QRadioButton *radio,
+            findChildren<QRadioButton*>())
+    {
+        connect(radio,
+                &QRadioButton::toggled,
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+
+    //-------------------------------------------------
+    // Todos los QCheckBox
+    //-------------------------------------------------
+
+    foreach(QCheckBox *check,
+            findChildren<QCheckBox*>())
+    {
+        connect(check,
+                &QCheckBox::toggled,
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+
+    //-------------------------------------------------
+    // Todos los ComboBox
+    //-------------------------------------------------
+
+    foreach(QComboBox *combo,
+            findChildren<QComboBox*>())
+    {
+        connect(combo,
+                QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this,
+                &MainWindow::onEstadoModificado);
+    }
+
+    //-------------------------------------------------
+    // Todas las tablas
+    //-------------------------------------------------
+
+    foreach(QTableWidget *table,
+            findChildren<QTableWidget*>())
+    {
+        connect(table,
+                &QTableWidget::itemChanged,
+                this,
+                &MainWindow::onEstadoModificado);
+    }*/
 
 }
 //----------------------------------------------------
