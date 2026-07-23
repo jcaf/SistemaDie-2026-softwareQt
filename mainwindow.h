@@ -170,5 +170,16 @@ private:
     void NotificarCambioEstado();
     bool EscribirArchivoSesion(const QJsonObject &root);
     /// /////////////////////////////////////////////////////////////////////
+
+    void BloquearSenalesGUI(bool bloquear);
+    QString RutaArchivoSesion() const;
+
+    bool RestaurarSesion();
+    bool LeerArchivoSesion(QJsonObject &root);
+    bool AplicarSessionData(const QJsonObject &root);
+    bool ExisteSesion() const;
+
+    void CrearTabla(double recorrido, double intervalo);
+
 };
 #endif // MAINWINDOW_H

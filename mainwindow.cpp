@@ -31,6 +31,8 @@
 #include <QString>
 #include <OpenXLSX.hpp>
 #include <QStandardPaths>
+#include <QSaveFile>
+
 using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
@@ -494,6 +496,10 @@ void MainWindow::readSerial()
         }
     }
 }
+QList<QDoubleSpinBox*> m_spinBoxes;
+QList<QRadioButton*>   m_radioButtons;
+//QList<QLineEdit*>      m_lineEdits;
+//QList<QCheckBox*>      m_checkBoxes;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -501,6 +507,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     ui->radioButton_L->hide();
+
 
     TABLA_NUM_FILAS_TOTALES = 0;
 
@@ -560,6 +567,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     //+------------------------- Session manager 2026
+    m_spinBoxes    = findChildren<QDoubleSpinBox*>();
+    m_radioButtons = findChildren<QRadioButton*>();
+    // m_lineEdits    = findChildren<QLineEdit*>();
+    // m_checkBoxes   = findChildren<QCheckBox*>();
+
+
     //-------------------------------------------------
     m_timerAutoSave = new QTimer(this);
     m_timerAutoSave->setSingleShot(true);
@@ -850,11 +863,91 @@ void MainWindow::onCellChanged(int row, int column)
         }
     }*/
 
-
-///////////////////////////////////////////////////////////////////////////////////////
-
 }
 
+void MainWindow::CrearTabla(double recorrido, double intervalo)
+{
+    TABLA_NUM_FILAS_TOTALES =(int) (recorrido /intervalo) + TABLA_NUMBER_FILAS_ADICIONALES;
+
+    tableWidget->setRowCount(TABLA_NUM_FILAS_TOTALES);
+    tableWidget->setColumnCount(TABLA_NUMBER_COLUMNAS);
+
+    tableWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
+    tableWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
+    //excusa para poder tener un puntero despues con tableWidget->item(r,0)
+    //En realidad, para QTableWidget es necesario inicicializar todos los items como "texto vacio" para que cuando se exporte
+    //al leer el valor de celdas vacias, no de error. Es como si cada celda necesita previamente tener un valor aun asi no se use
+    for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
+    {
+        for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
+        {
+            QTableWidgetItem* text = new QTableWidgetItem();
+            text->setText("");
+            tableWidget->setItem(r,col,text);
+        }
+    }
+    //Posicion disable
+    tableWidget_columna_setEnabled(0,false);
+
+    //ADD:
+    if (ui->radioButton_SP->isChecked())
+    {
+        tableWidget_enable_for_SP();
+    }
+    else if (ui->radioButton_NC->isChecked())
+    {
+        tableWidget_enable_for_NC();
+    }
+    else if (ui->radioButton_NL->isChecked())
+    {
+        tableWidget_enable_for_NL();
+    }
+    else if (ui->radioButton_L->isChecked())
+    {
+        tableWidget_enable_for_L();
+    }
+}
+
+void MainWindow::on_pushButton_Aceptar_clicked()
+{
+    RECORRIDOTOTAL = ui->recorridoTotal->value();
+    float itv = ui->intervalo->value();
+    BloquearSenalesGUI(true);
+
+    CrearTabla(RECORRIDOTOTAL, itv);
+
+    //--------------------------------------------
+    tabla_numfila = 0; //reset
+
+    //deshabilitar los controles
+    ui->recorridoTotal->setEnabled(false);
+    ui->intervalo->setEnabled(false);
+    ui->pushButton_Reset->setEnabled(false);
+    ui->pushButton_Aceptar->setEnabled(false);
+    ui->pushButton_Inicio->setEnabled(true);
+    ui->pushButton_Parar->setEnabled(true);
+    ui->pushButton_Reset->setEnabled(false);
+    //added 2026
+    ui->pushButton_Motor->setChecked(true);
+    if (ui->pushButton_Motor->isChecked())
+    {
+        ui->pushButton_Motor->setChecked(false);
+        led_motor->setState(false);
+    }
+
+
+    USB_send_data_float(USB_DATACODE_SET_RECORRIDO_TOTAL, RECORRIDOTOTAL );//rt);
+    //QThread::msleep(10);
+    USB_send_data_float(USB_DATACODE_SET_INTERVALO, itv);
+    //QThread::msleep(10);
+    USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
+    //qDebug()<<"fin enviar datos al microcontrolador..."<<Qt::endl;
+
+    //--------------------------------------------
+    BloquearSenalesGUI(false);
+}
+/*
 void MainWindow::on_pushButton_Aceptar_clicked()
 {
     //float rt = ui->recorridoTotal->value();
@@ -863,7 +956,10 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     //TABLA_NUM_FILAS_TOTALES =(int) (rt /itv) + TABLA_NUMBER_FILAS_ADICIONALES;
     TABLA_NUM_FILAS_TOTALES =(int) (RECORRIDOTOTAL /itv) + TABLA_NUMBER_FILAS_ADICIONALES;
 
-    tableWidget->blockSignals(true);  //desactivar señales
+    //tableWidget->blockSignals(true);  //desactivar señales
+
+    BloquearSenalesGUI(true);
+
     tableWidget->setRowCount(TABLA_NUM_FILAS_TOTALES);
     tableWidget->setColumnCount(TABLA_NUMBER_COLUMNAS);
 
@@ -883,7 +979,7 @@ void MainWindow::on_pushButton_Aceptar_clicked()
         }
     }
 
-    tableWidget->blockSignals(false);
+
     //Posicion disable
     tableWidget_columna_setEnabled(0,false);
     // for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
@@ -892,6 +988,9 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     //     QTableWidgetItem *dataItem = tableWidget->item(r, 0);
     //     dataItem->setFlags(dataItem->flags() & ~Qt::ItemIsEditable);
     // }
+
+
+
     //deshabilitar los controles
     ui->recorridoTotal->setEnabled(false);
     ui->intervalo->setEnabled(false);
@@ -952,19 +1051,22 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     }
 
     //ahora pasa al constructor
-    /*
-    //new: 8/set/2025
-    connect(tableWidget, &QTableWidget::cellChanged,
-            this, &MainWindow::onCellChanged,
-               Qt::UniqueConnection);
-*/
+
+    // //new: 8/set/2025
+    // connect(tableWidget, &QTableWidget::cellChanged,
+    //         this, &MainWindow::onCellChanged,
+    //            Qt::UniqueConnection);
+
 
     //Bug fixed 7:Posible doble conexión de señales
-    /*
-     * Bien hecho , pero ojo: en on_pushButton_Aceptar_clicked() tienes comentada otra conexión similar. Si la descomentas y olvidas el UniqueConnection, tendrás ejecuciones dobles.
-     * */
-}
 
+    // Bien hecho , pero ojo: en on_pushButton_Aceptar_clicked() tienes comentada otra conexión similar. Si la descomentas y olvidas el UniqueConnection, tendrás ejecuciones dobles.
+
+
+    //tableWidget->blockSignals(false);
+    BloquearSenalesGUI(false);
+}
+*/
 void MainWindow::tableWidget_enable_for_SP()
 {
     tableWidget_columna_setEnabled(0,false);
@@ -1248,23 +1350,64 @@ void MainWindow::on_pushButton_Exportar_clicked()
 bool m_restaurandoSesion = false;
 bool m_sesionModificada = false;
 
+void MainWindow::BloquearSenalesGUI(bool bloquear)
+{
+    foreach (QDoubleSpinBox *spin,
+             findChildren<QDoubleSpinBox*>())
+    {
+        spin->blockSignals(bloquear);
+    }
+
+    foreach (QRadioButton *radio,
+             findChildren<QRadioButton*>())
+    {
+        radio->blockSignals(bloquear);
+    }
+    /*
+    foreach (QLineEdit *edit,
+             findChildren<QLineEdit*>())
+    {
+        edit->blockSignals(bloquear);
+    }
+
+    foreach (QCheckBox *check,
+             findChildren<QCheckBox*>())
+    {
+        check->blockSignals(bloquear);
+    }
+    */
+    tableWidget->blockSignals(bloquear);
+}
 void MainWindow::ConfigurarAutoSave()
 {
-    foreach (QDoubleSpinBox *spin, findChildren<QDoubleSpinBox*>() )
+
+    foreach (QDoubleSpinBox *spin, m_spinBoxes )
     {
         connect(spin,
                 QOverload<double>::of(&QDoubleSpinBox::valueChanged),
                 this,
                 &MainWindow::NotificarCambioEstado);
     }
-    //
-    /*foreach (QRadioButton *radio, findChildren<QRadioButton*>() )
+    foreach (QRadioButton *radio, m_radioButtons )
     {
         connect(radio,
                 &QRadioButton::toggled,
                 this,
+                [this](bool checked)
+                {
+                    if (checked)
+                        NotificarCambioEstado();
+                });
+    }
+
+    /*
+     *     foreach (QDoubleSpinBox *spin, findChildren<QDoubleSpinBox*>() )
+    {
+        connect(spin,
+                QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+                this,
                 &MainWindow::NotificarCambioEstado);
-    }*/
+    }
     foreach (QRadioButton *radio, findChildren<QRadioButton*>())
     {
         connect(radio,
@@ -1277,6 +1420,7 @@ void MainWindow::ConfigurarAutoSave()
                 });
     }
 
+     */
     /*
     foreach(QLineEdit *edit,
              findChildren<QLineEdit*>())
@@ -1352,7 +1496,7 @@ void MainWindow::ConfigurarAutoSave()
                 this,
                 &MainWindow::onEstadoModificado);
     }
-
+    */
     //-------------------------------------------------
     // Todas las tablas
     //-------------------------------------------------
@@ -1363,8 +1507,8 @@ void MainWindow::ConfigurarAutoSave()
         connect(table,
                 &QTableWidget::itemChanged,
                 this,
-                &MainWindow::onEstadoModificado);
-    }*/
+                &MainWindow::NotificarCambioEstado);
+    }
 
 }
 //----------------------------------------------------
@@ -1524,19 +1668,123 @@ QJsonObject SessionData::toJson() const
     return root;
 }
 
-bool MainWindow::EscribirArchivoSesion(const QJsonObject &root)
+QString MainWindow::RutaArchivoSesion() const
 {
-    QString ruta = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString ruta = QStandardPaths::writableLocation(
+        QStandardPaths::AppDataLocation);
 
     QDir().mkpath(ruta);
-    QFile file (ruta + "/session.json");
+
+    return ruta + "/session.json";
+}
+bool MainWindow::ExisteSesion() const
+{
+    return QFile::exists(RutaArchivoSesion());
+}
+bool MainWindow::EscribirArchivoSesion(const QJsonObject &root)
+{
+    QSaveFile file(RutaArchivoSesion());
 
     if (!file.open(QIODevice::WriteOnly))
         return false;
 
     QJsonDocument documento(root);
+
     file.write(documento.toJson(QJsonDocument::Indented));
-    file.close();
+
+    if (!file.commit())
+        return false;
+
+    qDebug() << "Documento grabado en"
+             << RutaArchivoSesion();
 
     return true;
+}
+bool MainWindow::LeerArchivoSesion(QJsonObject &root)
+{
+    QFile file(RutaArchivoSesion());
+
+    if (!file.exists())
+        return false;
+
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+
+    QByteArray datos = file.readAll();
+
+    file.close();
+
+    QJsonParseError error;
+
+    QJsonDocument documento =
+        QJsonDocument::fromJson(datos, &error);
+
+    if (error.error != QJsonParseError::NoError)
+    {
+        qDebug() << "JSON inválido:"
+                 << error.errorString();
+
+        return false;
+    }
+
+    root = documento.object();
+
+    return true;
+}
+bool MainWindow::RestaurarSesion()
+{
+    QJsonObject root;
+
+    if (!LeerArchivoSesion(root))
+    {
+        QMessageBox::warning(this,
+                             tr("Restaurar sesión"),
+                             tr("No se pudo leer la sesión guardada."));
+        return false;
+    }
+
+    if (!AplicarSessionData(root))
+    {
+        QMessageBox::warning(this,
+                             tr("Restaurar sesión"),
+                             tr("La sesión está dañada o es incompatible."));
+        return false;
+    }
+
+    qDebug() << "Sesión restaurada.";
+
+    return true;
+}
+
+bool MainWindow::AplicarSessionData(const QJsonObject &root)
+{
+    BloquearSenalesGUI(true);
+
+    bool ok = true;
+
+    do
+    {
+        //-------------------------------------
+        // CONFIGURACION
+        //-------------------------------------
+
+        if (!root.contains("config"))
+        {
+            ok = false;
+            break;
+        }
+
+        QJsonObject config = root["config"].toObject();
+
+        ui->recorridoTotal->setValue(
+            config["recorridoTotal"].toDouble());
+
+        ui->intervalo->setValue(
+            config["intervalo"].toDouble());
+
+    }while(false);
+
+    BloquearSenalesGUI(false);
+
+    return ok;
 }

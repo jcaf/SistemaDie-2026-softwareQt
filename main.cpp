@@ -10,7 +10,7 @@
 int main(int argc, char *argv[])
 {
 
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setStyle(QStyleFactory::create("Fusion")); // these lines before the next
 
 
