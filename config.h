@@ -17,6 +17,9 @@ public:
     explicit Config(QWidget *parent = nullptr);
     ~Config();
 
+    int encodernpulses = 0; //se leen al cargar el programa desde el archivo de texto
+    float longitud_arco= 0;//se leen al cargar el programa desde el archivo de texto
+
 private slots:
     void on_buttonBox_accepted();
 

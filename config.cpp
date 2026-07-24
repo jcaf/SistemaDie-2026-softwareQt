@@ -9,8 +9,8 @@ bool Config::readFile(void)
 {
     bool codret=false;
 
-    int encodernpulses = 0;
-    float longitud_arco= 0;
+    // int encodernpulses = 0;
+    // float longitud_arco= 0;
 
     QString filename="config.txt";
     QFile file(filename);
@@ -35,6 +35,7 @@ bool Config::readFile(void)
         qDebug()<< "encoderPPR" << encoderPPR;
         encodernpulses = encoderPPR.toInt();
         ui->encoder_PPR->setValue(encodernpulses);
+
         //
         QString LongitudArco = in.readLine();
         longitud_arco = LongitudArco.toFloat();

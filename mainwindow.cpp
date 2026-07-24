@@ -907,19 +907,12 @@ void MainWindow::CrearTabla(double recorrido, double intervalo)
     {
         tableWidget_enable_for_L();
     }
+
+
 }
 
-void MainWindow::on_pushButton_Aceptar_clicked()
+void MainWindow::ConfigurarEstadoInicialEnsayo()
 {
-    RECORRIDOTOTAL = ui->recorridoTotal->value();
-    float itv = ui->intervalo->value();
-    BloquearSenalesGUI(true);
-
-    CrearTabla(RECORRIDOTOTAL, itv);
-
-    //--------------------------------------------
-    tabla_numfila = 0; //reset
-
     //deshabilitar los controles
     ui->recorridoTotal->setEnabled(false);
     ui->intervalo->setEnabled(false);
@@ -935,14 +928,31 @@ void MainWindow::on_pushButton_Aceptar_clicked()
         ui->pushButton_Motor->setChecked(false);
         led_motor->setState(false);
     }
-
-
+}
+void MainWindow::EnviarConfiguracionAlMicro()
+{
     USB_send_data_float(USB_DATACODE_SET_RECORRIDO_TOTAL, RECORRIDOTOTAL );//rt);
     //QThread::msleep(10);
     USB_send_data_float(USB_DATACODE_SET_INTERVALO, itv);
     //QThread::msleep(10);
     USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
     //qDebug()<<"fin enviar datos al microcontrolador..."<<Qt::endl;
+
+}
+
+void MainWindow::on_pushButton_Aceptar_clicked()
+{
+    RECORRIDOTOTAL = ui->recorridoTotal->value();
+    float itv = ui->intervalo->value();
+    BloquearSenalesGUI(true);
+
+    CrearTabla(RECORRIDOTOTAL, itv);
+
+    tabla_numfila = 0; //reset
+    //--------------------------------------------
+    ConfigurarEstadoInicialEnsayo();
+
+    EnviarConfiguracionAlMicro();
 
     //--------------------------------------------
     BloquearSenalesGUI(false);
@@ -1553,8 +1563,8 @@ SessionData MainWindow::ObtenerSessionData()
 
     data.config.recorridoTotal = ui->recorridoTotal->value();
     data.config.intervalo = ui->intervalo->value();
-    //data.config.longitudArco =
-    //data.config.pulsosEncoder =
+    data.config.longitudArco = objconfig->longitud_arco;
+    data.config.pulsosEncoder = objconfig->encodernpulses;
 
     //desarrollar los if correspondientes
     //if ui->radioButton_SP->isChecked()
@@ -1562,6 +1572,10 @@ SessionData MainWindow::ObtenerSessionData()
 
     data.estado.recorridoActual = ui->recorridoActual->value();
     data.estado.motorActivo = ui->pushButton_Motor->isChecked();
+    data.estado.filaActual = tabla_numfila;
+    //data.estado.encoderActual =;
+    //data.estado.
+
 
     //recuperar todas
     for (int fila = 0; fila<tableWidget->rowCount(); fila++)

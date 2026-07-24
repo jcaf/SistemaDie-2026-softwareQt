@@ -180,6 +180,8 @@ private:
     bool ExisteSesion() const;
 
     void CrearTabla(double recorrido, double intervalo);
+    void ConfigurarEstadoInicialEnsayo();
+    void EnviarConfiguracionAlMicro();
 
 };
 #endif // MAINWINDOW_H
