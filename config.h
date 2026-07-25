@@ -2,8 +2,7 @@
 #define CONFIG_H
 
 #include <QDialog>
-#include <QFile>
-#include <QString>
+#include "ConfiguracionSistema.h"
 
 namespace Ui {
 class Config;
@@ -17,19 +16,18 @@ public:
     explicit Config(QWidget *parent = nullptr);
     ~Config();
 
-    int encodernpulses = 0; //se leen al cargar el programa desde el archivo de texto
-    float longitud_arco= 0;//se leen al cargar el programa desde el archivo de texto
+    void setConfiguracion(const ConfiguracionSistema &cfg);
+    ConfiguracionSistema configuracion() const;
 
 private slots:
     void on_buttonBox_accepted();
 
 private:
     Ui::Config *ui;
-    bool readFile(void);
+
 
 signals:
     void update(char datacode, int payload0);
-
     void update_float(char datacode, float payload0);
 
 };

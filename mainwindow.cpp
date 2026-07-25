@@ -32,7 +32,7 @@
 #include <OpenXLSX.hpp>
 #include <QStandardPaths>
 #include <QSaveFile>
-
+#include <QTextStream>
 using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
@@ -506,6 +506,19 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    config = new Config(this);
+    //connect(config, &Config::update, this, &MainWindow::USB_send_data_integer);
+    //connect(config, &Config::update_float, this, &MainWindow::USB_send_data_float);
+
+    // -------------------------------------------------------------
+    // Conexión explícita usando la sintaxis moderna de punteros a función
+    // -------------------------------------------------------------
+    connect(ui->actionConstantes, &QAction::triggered, this, &MainWindow::abrirDialogoConstantes);
+    LeerConfiguracionTXT();
+    // -------------------------------------------------------------
+
+    //-----------------------------
     ui->radioButton_L->hide();
 
 
@@ -607,7 +620,86 @@ MainWindow::~MainWindow()
     delete tableWidget;
 
 }
+void MainWindow::abrirDialogoConstantes()
+{
+    config->setConfiguracion(configuracionSistema);
 
+    if(config->exec() == QDialog::Accepted)
+    {
+        configuracionSistema =config->configuracion();
+
+        USB_send_data_integer(USB_DATACODE_SET_ENCODER_PPR,configuracionSistema.encoderPPR);
+        USB_send_data_float(USB_DATACODE_SET_LONGITUD_ARCO,configuracionSistema.longitudArco);
+
+
+        GuardarConfiguracionTXT();
+        NotificarCambioEstado();
+        //GuardarSesion();
+    }
+}
+bool MainWindow::GuardarConfiguracionTXT()
+{
+    QSaveFile file("config.txt");
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return false;
+
+    QTextStream out(&file);//QTextStream ya tiene sobrecargado el operador de inserción << para la gran mayoría de tipos nativos de C++ (int, float, double, uint32_t, etc.).
+
+    // Opcional: Para asegurar que el float se guarde con 2 decimales sin notación científica
+    // out << Qt::fixed << qSetRealNumberPrecision(2);
+    out << configuracionSistema.encoderPPR << Qt::endl;
+    out << configuracionSistema.longitudArco;
+
+    //return true;
+    // Confirmar los cambios atómicamente en disco
+    return file.commit();
+}
+
+
+bool MainWindow::LeerConfiguracionTXT(void)
+{
+    bool codret=false;
+
+    QString filename="config.txt";
+    QFile file(filename);
+
+
+    if(!file.exists())
+    {
+        qDebug() << "NO existe el archivo "<<filename;
+    }else{
+        qDebug() << "Archivo "<<filename<<" encontrado...";
+    }
+
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::information(0, "error", file.errorString());
+    }
+    else
+    {
+        QTextStream in(&file);
+
+        QString encoderPPR = in.readLine();
+        configuracionSistema.encoderPPR = encoderPPR.toInt();
+        qDebug()<< "encoderPPR" << encoderPPR;
+
+        //
+        QString LongitudArco = in.readLine();
+        configuracionSistema.longitudArco = LongitudArco.toFloat();
+        qDebug()<< "LongitudArco" << LongitudArco;
+
+        config->setConfiguracion(configuracionSistema);
+        codret = true;
+    }
+
+
+    file.close();
+    return codret;
+}
+
+/*
+ *
 void MainWindow::on_actionConstantes_triggered()
 {
     // Config mDialog;
@@ -621,6 +713,7 @@ void MainWindow::on_actionConstantes_triggered()
     objconfig->exec();
 }
 
+ */
 
 //usar overloading la sgte. vez para tener 2 funciones diferentes enviando datos diferentes
 
@@ -943,7 +1036,7 @@ void MainWindow::EnviarConfiguracionAlMicro()
 void MainWindow::on_pushButton_Aceptar_clicked()
 {
     RECORRIDOTOTAL = ui->recorridoTotal->value();
-    float itv = ui->intervalo->value();
+    itv = ui->intervalo->value();
     BloquearSenalesGUI(true);
 
     CrearTabla(RECORRIDOTOTAL, itv);
@@ -1540,6 +1633,9 @@ void MainWindow::NotificarCambioEstado()
 //     }
 // }
 
+//-----------------------------------------------------------------
+//No olvidar GuardarSesion() es disparado por
+//connect(m_timerAutoSave,&QTimer::timeout,this,&MainWindow::GuardarSesion);
 void MainWindow::GuardarSesion()
 {
     qDebug() << "guardando sesion";
@@ -1563,8 +1659,9 @@ SessionData MainWindow::ObtenerSessionData()
 
     data.config.recorridoTotal = ui->recorridoTotal->value();
     data.config.intervalo = ui->intervalo->value();
-    data.config.longitudArco = objconfig->longitud_arco;
-    data.config.pulsosEncoder = objconfig->encodernpulses;
+
+    data.config.longitudArco = configuracionSistema.longitudArco;
+    data.config.pulsosEncoder = configuracionSistema.encoderPPR;
 
     //desarrollar los if correspondientes
     //if ui->radioButton_SP->isChecked()

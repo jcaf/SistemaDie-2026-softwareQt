@@ -17,6 +17,7 @@
 ////////////////2026
 #include "sessiondata.h"
 ///////////////////////
+#include "ConfiguracionSistema.h"
 
 //////////////////////////////////////////////////////////
 #define USB_DATACODE_TOKEN_BEGIN '@'
@@ -85,7 +86,7 @@ public:
 
     void USB_send_data_float(char datacode, float payload0);//al enviar
 
-    Config *objconfig;
+
 
     QTimer *timer;
     bool usbport_status;
@@ -93,8 +94,9 @@ public:
 private slots:
     void readSerial();
 
-    void on_actionConstantes_triggered();
-
+    //void on_actionConstantes_triggered();
+    // Cambiamos 'on_actionConstantes_triggered()' por un nombre más descriptivo
+    void abrirDialogoConstantes();
 
     void on_pushButton_Aceptar_clicked();
 
@@ -158,7 +160,7 @@ private:
     int tabla_numfila;
     int TABLA_NUM_FILAS_TOTALES;
     float RECORRIDOTOTAL;
-
+    float itv;
     /////////////////////////////////////////////////////////////////////2026
     void ConfigurarAutoSave();
     QTimer *m_timerAutoSave;
@@ -183,5 +185,12 @@ private:
     void ConfigurarEstadoInicialEnsayo();
     void EnviarConfiguracionAlMicro();
 
+
+    Config *config = nullptr;
+
+    ConfiguracionSistema configuracionSistema;
+
+    bool GuardarConfiguracionTXT();
+    bool LeerConfiguracionTXT();
 };
 #endif // MAINWINDOW_H

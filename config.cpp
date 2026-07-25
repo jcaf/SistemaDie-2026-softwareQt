@@ -5,6 +5,24 @@
 #include <QString>
 #include "mainwindow.h"
 
+void Config::setConfiguracion(const ConfiguracionSistema &cfg)
+{
+    ui->encoder_PPR->setValue(cfg.encoderPPR);
+
+    ui->longitudArcoPorResolucion->setValue(cfg.longitudArco);
+}
+
+ConfiguracionSistema Config::configuracion() const
+{
+    ConfiguracionSistema cfg;
+
+    cfg.encoderPPR = ui->encoder_PPR->value();
+
+    cfg.longitudArco = ui->longitudArcoPorResolucion->value();
+
+    return cfg;
+}
+/*
 bool Config::readFile(void)
 {
     bool codret=false;
@@ -49,14 +67,13 @@ bool Config::readFile(void)
     file.close();
     return codret;
 }
-
+*/
 Config::Config(QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Config)
 {
     ui->setupUi(this);
 
-    readFile();
 }
 
 Config::~Config()
@@ -64,15 +81,17 @@ Config::~Config()
     delete ui;
 }
 
+//Incluso podríamos eliminar estos signals más adelante, pero por ahora los podemos mantener para no cambiar demasiadas cosas a la vez.
 void Config::on_buttonBox_accepted()
 {
+    /*
     QString filename="config.txt";
     QFile file(filename);
 
-    int encodernpulses = ui->encoder_PPR->value();
+    encodernpulses = ui->encoder_PPR->value();
     QString encoder_line= QString::number(encodernpulses);
 
-    float longitud_arco= ui->longitudArcoPorResolucion->value();
+    longitud_arco= ui->longitudArcoPorResolucion->value();
     QString longitudarco_line = QString::number(longitud_arco);
 
     if (file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -86,6 +105,6 @@ void Config::on_buttonBox_accepted()
     //
     emit update(USB_DATACODE_SET_ENCODER_PPR, encodernpulses);
     emit update_float(USB_DATACODE_SET_LONGITUD_ARCO, longitud_arco);
-
+    */
 }
 
