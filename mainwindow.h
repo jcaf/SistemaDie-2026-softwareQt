@@ -192,5 +192,6 @@ private:
     bool LeerConfiguracionTXT();
     void USB_send_data_selector(TipoRegistro tipo);
 
+    SessionData sessionData;
 };
 #endif // MAINWINDOW_H

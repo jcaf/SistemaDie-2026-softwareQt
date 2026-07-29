@@ -32,7 +32,7 @@
         bool ensayoIniciado = false;
         bool ensayoPausado = false;
         bool motorActivo = false;
-        long encoderActual = 0;
+        //long encoderActual = 0;
 
     };
 

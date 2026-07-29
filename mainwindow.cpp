@@ -972,6 +972,27 @@ void MainWindow::CrearTabla(double recorrido, double intervalo)
     //excusa para poder tener un puntero despues con tableWidget->item(r,0)
     //En realidad, para QTableWidget es necesario inicicializar todos los items como "texto vacio" para que cuando se exporte
     //al leer el valor de celdas vacias, no de error. Es como si cada celda necesita previamente tener un valor aun asi no se use
+
+    // QTableWidget no crea automáticamente un QTableWidgetItem para cada celda.
+    // Después de definir el número de filas y columnas, todas las celdas contienen nullptr.
+    //
+    // Como en el resto del programa se accede directamente mediante:
+    //
+    //     tableWidget->item(r, c)->text();
+    //
+    // inicializamos previamente todas las celdas con un QTableWidgetItem vacío para
+    // evitar comprobar continuamente si el puntero es nullptr.
+
+    // Decisión de diseño:
+    //
+    // Preferimos que todas las celdas tengan siempre un QTableWidgetItem válido,
+    // aunque su texto esté vacío. De esta forma el resto del código puede acceder
+    // directamente a tableWidget->item(r,c) sin realizar comprobaciones de nullptr.
+
+    // Inicializamos todas las celdas para garantizar que tableWidget->item(r,c)
+    // nunca devuelva nullptr. Esto simplifica el resto del código al evitar
+    // comprobaciones repetitivas antes de acceder al contenido de una celda.
+
     for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
     {
         for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
@@ -1241,33 +1262,32 @@ void MainWindow::USB_send_data_selector(TipoRegistro tipo)
 void MainWindow::on_radioButton_SP_clicked()
 {
     //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_SP);
-    //SessionData.config.tipoRegistro = 0;
-
-//    USB_send_data_selector(SessionData.config.tipoRegistro);
+    sessionData.config.tipoRegistro = TipoRegistro::SP;
+    USB_send_data_selector(sessionData.config.tipoRegistro);
     tableWidget_enable_for_SP();
 }
 
 void MainWindow::on_radioButton_NC_clicked()
 {
     //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NC);
-    // SessionData.config.tipoRegistro = TipoRegistro::NC;
-    // USB_send_data_selector(SessionData.config.tipoRegistro);
+    sessionData.config.tipoRegistro = TipoRegistro::NC;
+    USB_send_data_selector(sessionData.config.tipoRegistro);
     tableWidget_enable_for_NC();
 }
 
 void MainWindow::on_radioButton_NL_clicked()
 {
     //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NL);
-    // SessionData.config.tipoRegistro = TipoRegistro::NL;
-    // USB_send_data_selector(SessionData.config.tipoRegistro);
+    sessionData.config.tipoRegistro = TipoRegistro::NL;
+    USB_send_data_selector(sessionData.config.tipoRegistro);
     tableWidget_enable_for_NL();
 }
 
 void MainWindow::on_radioButton_L_clicked()
 {
     //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_L);
-    // SessionData.config.tipoRegistro =  TipoRegistro::L;
-    // USB_send_data_selector(SessionData.config.tipoRegistro);
+    sessionData.config.tipoRegistro =  TipoRegistro::L;
+    USB_send_data_selector(sessionData.config.tipoRegistro);
     tableWidget_enable_for_L();
 }
 
@@ -1666,47 +1686,38 @@ void MainWindow::GuardarSesion()
 //----------------------------------------------------
 SessionData MainWindow::ObtenerSessionData()
 {
-    SessionData data;
-
-    data.config.recorridoTotal = ui->recorridoTotal->value();
-    data.config.intervalo = ui->intervalo->value();
-    data.config.longitudArco = configuracionSistema.longitudArco;
-    data.config.pulsosEncoder = configuracionSistema.encoderPPR;
-    //data.config.tipoRegistro en cada evento de seleccion es directamente acualizado
+    sessionData.config.recorridoTotal = ui->recorridoTotal->value();
+    sessionData.config.intervalo = ui->intervalo->value();
+    sessionData.config.longitudArco = configuracionSistema.longitudArco;
+    sessionData.config.pulsosEncoder = configuracionSistema.encoderPPR;
+    //sessionData.config.tipoRegistro en cada evento de seleccion es directamente acualizado
     //
-    data.estado.recorridoActual = ui->recorridoActual->value();
-    data.estado.motorActivo = ui->pushButton_Motor->isChecked();
-    data.estado.filaActual = tabla_numfila;
+    sessionData.estado.recorridoActual = ui->recorridoActual->value();
+    sessionData.estado.motorActivo = ui->pushButton_Motor->isChecked();
+    sessionData.estado.filaActual = tabla_numfila;
     //data.estado.encoderActual =;
-/*
-////-----------------------------------
-    for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
-    {
-        for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
-        {
-            QString qstr_item = tableWidget->item(r, col)->text();
-            double value = qstr_item.toDouble();
-            // QByteArray str_item = qstr_item.toLocal8Bit();
-            // strcpy(buff,str_item);
-            //
-            wks.cell(r+2,col+1).value() = value;//buff;
-        }
-    }
-    ///
-///
-///
-*/
-    //recuperar todas
-/*    for (int fila = 0; fila<tableWidget->rowCount(); fila++)
-    {
-        FilaMedicion registro;
-        //registro.posicion = Valor
-        registro.posicion =
 
-        data.tabla.append(registro);
+
+    FilaMedicion registro;
+    //
+    sessionData.tabla.clear();
+    sessionData.tabla.reserve(TABLA_NUM_FILAS_TOTALES);
+    //
+
+    for (int r=0; r < tableWidget->rowCount(); r++)
+    {
+        registro.posicion = tableWidget->item(r, 0)->text().toDouble();
+        registro.corriente = tableWidget->item(r, 1)->text().toDouble();
+        registro.sp = tableWidget->item(r, 2)->text().toDouble();
+        registro.vnc= tableWidget->item(r, 3)->text().toDouble();
+        registro.vnl = tableWidget->item(r, 4)->text().toDouble();
+        registro.rnc = tableWidget->item(r, 5)->text().toDouble();
+        registro.rnl= tableWidget->item(r, 6)->text().toDouble();
+
+        sessionData.tabla.append(registro);
     }
-*/
-    return data;
+
+    return sessionData;
 
 }
 //----------------------------------------------------
@@ -1729,16 +1740,14 @@ void MainWindow::AplicarSessionData(const SessionData &data)
 
     }
 
-    /*
-    for(int fila=0; fila<data.tabla.size();fila++)
+
+    for(int fila=0; fila < data.tabla.size(); fila++)
     {
         const FilaMedicion &registro = data.tabla[fila];
 
-        ...
-
-        EscribirValorTabla(fila, COL_POSICION, registro.posicion);
+//        EscribirValorTabla(fila, COL_POSICION, registro.posicion);
     }
-*/
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++
