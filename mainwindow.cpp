@@ -514,6 +514,7 @@ MainWindow::MainWindow(QWidget *parent)
     // -------------------------------------------------------------
     // Conexión explícita usando la sintaxis moderna de punteros a función
     // -------------------------------------------------------------
+    //en el GUI, quedo con el nombre actionConstantes a la opcion "Constantes" y es de tipo QAction
     connect(ui->actionConstantes, &QAction::triggered, this, &MainWindow::abrirDialogoConstantes);
     LeerConfiguracionTXT();
     // -------------------------------------------------------------
@@ -1233,30 +1234,40 @@ void MainWindow::tableWidget_enable_for_L()
     //=4*PI()*((2.39*0.125)/0.64)*(F4/B4)
 */
 }
-
+void MainWindow::USB_send_data_selector(TipoRegistro tipo)
+{
+    USB_send_data_integer(USB_DATACODE_SET_SELECTOR, static_cast<int>(tipo));
+}
 void MainWindow::on_radioButton_SP_clicked()
 {
-    USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_SP);
+    //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_SP);
+    //SessionData.config.tipoRegistro = 0;
+
+//    USB_send_data_selector(SessionData.config.tipoRegistro);
     tableWidget_enable_for_SP();
 }
 
-
 void MainWindow::on_radioButton_NC_clicked()
 {
-    USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NC);
+    //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NC);
+    // SessionData.config.tipoRegistro = TipoRegistro::NC;
+    // USB_send_data_selector(SessionData.config.tipoRegistro);
     tableWidget_enable_for_NC();
 }
 
 void MainWindow::on_radioButton_NL_clicked()
 {
-    USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NL);
+    //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_NL);
+    // SessionData.config.tipoRegistro = TipoRegistro::NL;
+    // USB_send_data_selector(SessionData.config.tipoRegistro);
     tableWidget_enable_for_NL();
 }
 
-
 void MainWindow::on_radioButton_L_clicked()
 {
-    USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_L);
+    //USB_send_data_integer(USB_DATACODE_SET_SELECTOR, SELECTOR_L);
+    // SessionData.config.tipoRegistro =  TipoRegistro::L;
+    // USB_send_data_selector(SessionData.config.tipoRegistro);
     tableWidget_enable_for_L();
 }
 
@@ -1659,30 +1670,42 @@ SessionData MainWindow::ObtenerSessionData()
 
     data.config.recorridoTotal = ui->recorridoTotal->value();
     data.config.intervalo = ui->intervalo->value();
-
     data.config.longitudArco = configuracionSistema.longitudArco;
     data.config.pulsosEncoder = configuracionSistema.encoderPPR;
-
-    //desarrollar los if correspondientes
-    //if ui->radioButton_SP->isChecked()
-    //data.config.tipoRegistro =
-
+    //data.config.tipoRegistro en cada evento de seleccion es directamente acualizado
+    //
     data.estado.recorridoActual = ui->recorridoActual->value();
     data.estado.motorActivo = ui->pushButton_Motor->isChecked();
     data.estado.filaActual = tabla_numfila;
     //data.estado.encoderActual =;
-    //data.estado.
-
-
+/*
+////-----------------------------------
+    for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
+    {
+        for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
+        {
+            QString qstr_item = tableWidget->item(r, col)->text();
+            double value = qstr_item.toDouble();
+            // QByteArray str_item = qstr_item.toLocal8Bit();
+            // strcpy(buff,str_item);
+            //
+            wks.cell(r+2,col+1).value() = value;//buff;
+        }
+    }
+    ///
+///
+///
+*/
     //recuperar todas
-    for (int fila = 0; fila<tableWidget->rowCount(); fila++)
+/*    for (int fila = 0; fila<tableWidget->rowCount(); fila++)
     {
         FilaMedicion registro;
         //registro.posicion = Valor
+        registro.posicion =
 
         data.tabla.append(registro);
     }
-
+*/
     return data;
 
 }
@@ -1691,29 +1714,30 @@ void MainWindow::AplicarSessionData(const SessionData &data)
 {
     switch (data.config.tipoRegistro)
     {
-        case TipoRegistro::SP:
-            ui->radioButton_SP->setChecked(true);
+        case TipoRegistro::SP: ui->radioButton_SP->setChecked(true);
             break;
 
-        case TipoRegistro::NC:
-            ui->radioButton_NC->setChecked(true);
-        //completar
+        case TipoRegistro::NC: ui->radioButton_NC->setChecked(true);
+            break;
+
+        case TipoRegistro::NL: ui->radioButton_NL->setChecked(true);
+            break;
+
+        case TipoRegistro::L: ui->radioButton_L->setChecked(true);
+            break;
+        default:break;
 
     }
 
     /*
-     * for(int fila=0;
-    fila<data.tabla.size();
-    fila++)
-{
-    const FilaMedicion &registro =
-            data.tabla[fila];
+    for(int fila=0; fila<data.tabla.size();fila++)
+    {
+        const FilaMedicion &registro = data.tabla[fila];
 
-    ...
+        ...
 
-EscribirValorTabla(fila,
-                   COL_POSICION,
-                   registro.posicion);
+        EscribirValorTabla(fila, COL_POSICION, registro.posicion);
+    }
 */
 }
 

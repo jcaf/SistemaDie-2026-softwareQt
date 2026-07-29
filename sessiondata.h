@@ -61,5 +61,6 @@
         void clear();
         bool isEmpty() const;
         //
+
     };
 #endif // SESSIONDATA_H

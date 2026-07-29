@@ -79,18 +79,16 @@ public:
 
     QTableWidget *tableWidget;
 
-
     bool usbport(void);
 
     QSerialPort *usbCDC = nullptr;
 
     void USB_send_data_float(char datacode, float payload0);//al enviar
 
-
-
     QTimer *timer;
     bool usbport_status;
     bool usbport_status_last;
+
 private slots:
     void readSerial();
 
@@ -192,5 +190,7 @@ private:
 
     bool GuardarConfiguracionTXT();
     bool LeerConfiguracionTXT();
+    void USB_send_data_selector(TipoRegistro tipo);
+
 };
 #endif // MAINWINDOW_H
