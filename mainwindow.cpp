@@ -993,13 +993,22 @@ void MainWindow::CrearTabla(double recorrido, double intervalo)
     // nunca devuelva nullptr. Esto simplifica el resto del código al evitar
     // comprobaciones repetitivas antes de acceder al contenido de una celda.
 
+
+    // Entonces el motivo real es:
+    // No es para "tener un puntero".
+    // El puntero ya existe.
+    // Lo que ocurre es que apunta a nullptr.
+    // Lo que necesitas es que cada celda tenga un objeto asociado.
+
     for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
     {
         for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
         {
-            QTableWidgetItem* text = new QTableWidgetItem();
-            text->setText("");
-            tableWidget->setItem(r,col,text);
+            // QTableWidgetItem* text = new QTableWidgetItem();
+            // text->setText("");//realmente es innecesaria. QTableWidgetItem recién creado ya contiene un texto vacío.
+
+            auto *item = new QTableWidgetItem;
+            tableWidget->setItem(r, col, item);
         }
     }
     //Posicion disable
@@ -1698,6 +1707,7 @@ SessionData MainWindow::ObtenerSessionData()
     //data.estado.encoderActual =;
 
 
+
     FilaMedicion registro;
     //
     sessionData.tabla.clear();
@@ -1706,6 +1716,7 @@ SessionData MainWindow::ObtenerSessionData()
 
     for (int r=0; r < tableWidget->rowCount(); r++)
     {
+        //Cuando el orden en el que uno quiere que se grabe el json importa, utilizan un array.
         registro.posicion = tableWidget->item(r, 0)->text().toDouble();
         registro.corriente = tableWidget->item(r, 1)->text().toDouble();
         registro.sp = tableWidget->item(r, 2)->text().toDouble();
@@ -1718,9 +1729,51 @@ SessionData MainWindow::ObtenerSessionData()
     }
 
     return sessionData;
-
 }
 //----------------------------------------------------
+void MainWindow::ActualizarCelda(int fila , int col, double valor)
+{
+    //No crear un QTableWidgetItem nuevo cada vez
+    //El problema es que ya habíamos creado todos los items cuando llamaste a CrearTabla().
+    // Por lo tanto, aquí ya existe un QTableWidgetItem.
+    // No hace falta crear otro.
+    // QString str = QString::number(valor,'f',2);
+    // auto text = new QTableWidgetItem();
+    // text->setText(str);
+    // tableWidget->setItem(fila, col, text);
+
+    // Porque si haces   setItem()
+    // Qt elimina automáticamente el anterior y coloca el nuevo.
+    // Funciona.
+    // Pero estás creando cientos o miles de objetos innecesariamente.
+
+    // No crea memoria.
+    // No destruye objetos.
+    // Sólo modifica el texto.
+
+    QTableWidgetItem *item = tableWidget->item(fila, col);
+    if (item)
+    {
+        item->setText(QString::number(valor,'f',2));
+    }
+}
+
+/* UNIFICAR CON ESTO
+ * void MainWindow::AplicarSessionData(const SessionData &data)
+{
+    BloquearSenalesGUI(true);
+
+    AplicarConfiguracion(data.config);
+
+    CrearTabla(data.config.recorridoTotal,
+               data.config.intervalo);
+
+    AplicarTabla(data.tabla);
+
+    AplicarEstado(data.estado);
+
+    BloquearSenalesGUI(false);
+}*/
 void MainWindow::AplicarSessionData(const SessionData &data)
 {
     switch (data.config.tipoRegistro)
@@ -1740,12 +1793,17 @@ void MainWindow::AplicarSessionData(const SessionData &data)
 
     }
 
-
-    for(int fila=0; fila < data.tabla.size(); fila++)
+    for(int r=0; r< data.tabla.size(); r++)
     {
-        const FilaMedicion &registro = data.tabla[fila];
+        const FilaMedicion &registro = data.tabla[r];
 
-//        EscribirValorTabla(fila, COL_POSICION, registro.posicion);
+        ActualizarCelda(r, 0, registro.posicion);
+        ActualizarCelda(r, 1, registro.corriente);
+        ActualizarCelda(r, 2, registro.sp);
+        ActualizarCelda(r, 3, registro.vnc);
+        ActualizarCelda(r, 4, registro.vnl);
+        ActualizarCelda(r, 5, registro.rnc);
+        ActualizarCelda(r, 6, registro.rnl);
     }
 
 }
@@ -1875,6 +1933,64 @@ bool MainWindow::LeerArchivoSesion(QJsonObject &root)
 
     return true;
 }
+SessionData SessionData::fromJson(const QJsonObject &root)
+{
+    SessionData data;
+
+    data.version = root["version"].toInt();
+
+    QJsonObject config = root["config"].toObject();
+
+    data.config.recorridoTotal =
+        config["recorridoTotal"].toDouble();
+
+    data.config.intervalo =
+        config["intervalo"].toDouble();
+
+    data.config.pulsosEncoder =
+        config["pulsosEncoder"].toInt();
+
+    data.config.longitudArco =
+        config["longitudArco"].toDouble();
+
+    data.config.tipoRegistro =
+        StringToTipoRegistro(
+            config["tipoRegistro"].toString());
+
+
+    QJsonObject estado = root["estado"].toObject();
+
+    data.estado.recorridoActual =
+        estado["recorridoActual"].toDouble();
+
+    data.estado.filaActual =
+        estado["filaActual"].toInt();
+
+    data.estado.motorActivo =
+        estado["motorActivo"].toBool();
+
+
+    QJsonArray tabla = root["tabla"].toArray();
+
+    for (const QJsonValue &value : tabla)
+    {
+        QJsonObject fila = value.toObject();
+
+        FilaMedicion registro;
+
+        registro.posicion = fila["posicion"].toDouble();
+        registro.corriente = fila["corriente"].toDouble();
+        registro.sp = fila["sp"].toDouble();
+        registro.vnc = fila["vnc"].toDouble();
+        registro.vnl = fila["vnl"].toDouble();
+        registro.rnc = fila["rnc"].toDouble();
+        registro.rnl = fila["rnl"].toDouble();
+
+        data.tabla.append(registro);
+    }
+
+    return data;
+}
 bool MainWindow::RestaurarSesion()
 {
     QJsonObject root;
@@ -1887,7 +2003,9 @@ bool MainWindow::RestaurarSesion()
         return false;
     }
 
-    if (!AplicarSessionData(root))
+    SessionData data = SessionData::fromJson(root);
+
+    if (!AplicarSessionData(data))
     {
         QMessageBox::warning(this,
                              tr("Restaurar sesión"),
@@ -1900,6 +2018,7 @@ bool MainWindow::RestaurarSesion()
     return true;
 }
 
+/* de aqui solo sacar el bloquear senales, no se si deba revisar el config, y asegurar que se reconstruya siempre la tabla al cargar la sesion
 bool MainWindow::AplicarSessionData(const QJsonObject &root)
 {
     BloquearSenalesGUI(true);
@@ -1932,3 +2051,4 @@ bool MainWindow::AplicarSessionData(const QJsonObject &root)
 
     return ok;
 }
+*/

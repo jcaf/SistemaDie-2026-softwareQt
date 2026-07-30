@@ -57,7 +57,8 @@
 
         //add:
         QJsonObject toJson() const;
-        bool fromJson(const QJsonObject&);
+        //bool fromJson(const QJsonObject&);
+        static SessionData fromJson(const QJsonObject &root);
         void clear();
         bool isEmpty() const;
         //

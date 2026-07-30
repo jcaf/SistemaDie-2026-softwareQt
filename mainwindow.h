@@ -193,5 +193,7 @@ private:
     void USB_send_data_selector(TipoRegistro tipo);
 
     SessionData sessionData;
+
+    void ActualizarCelda(int fila , int col, double valor);
 };
 #endif // MAINWINDOW_H
