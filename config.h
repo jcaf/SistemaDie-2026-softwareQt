@@ -26,9 +26,9 @@ private:
     Ui::Config *ui;
 
 
-signals:
-    void update(char datacode, int payload0);
-    void update_float(char datacode, float payload0);
+//signals:
+    //void update(char datacode, int payload0);
+    //void update_float(char datacode, float payload0);
 
 };
 

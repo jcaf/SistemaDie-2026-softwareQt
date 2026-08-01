@@ -580,7 +580,14 @@
     </property>
     <addaction name="actionConstantes"/>
    </widget>
+   <widget class="QMenu" name="menuSesi_n">
+    <property name="title">
+     <string>Sesión</string>
+    </property>
+    <addaction name="actionRestaurar_ultima"/>
+   </widget>
    <addaction name="menuConfig"/>
+   <addaction name="menuSesi_n"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionConstantes">
@@ -589,7 +596,17 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>14</pointsize>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+  </action>
+  <action name="actionRestaurar_ultima">
+   <property name="text">
+    <string>Restaurar ultima</string>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
     </font>
    </property>
   </action>

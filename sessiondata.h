@@ -21,7 +21,7 @@
         double recorridoTotal = 0.0;
         double intervalo = 0.0;
         TipoRegistro tipoRegistro = TipoRegistro::SP;
-        int pulsosEncoder = 0;
+        int encoderPPR = 0;
         double longitudArco = 0.0;
     };
 
@@ -57,7 +57,7 @@
 
         //add:
         QJsonObject toJson() const;
-        //bool fromJson(const QJsonObject&);
+
         static SessionData fromJson(const QJsonObject &root);
         void clear();
         bool isEmpty() const;

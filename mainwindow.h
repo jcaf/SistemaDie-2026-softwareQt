@@ -96,6 +96,8 @@ private slots:
     // Cambiamos 'on_actionConstantes_triggered()' por un nombre más descriptivo
     void abrirDialogoConstantes();
 
+    void abrirDialogoRestaurarSesion();
+
     void on_pushButton_Aceptar_clicked();
 
     void USB_send_data_integer(char datacode, int payload0);//al enviar
@@ -163,8 +165,7 @@ private:
     void ConfigurarAutoSave();
     QTimer *m_timerAutoSave;
     //
-    SessionData ObtenerSessionData();
-    void AplicarSessionData(const SessionData &data);
+
 
     void onEstadoModificado();
     void NotificarCambioEstado();
@@ -176,9 +177,10 @@ private:
 
     bool RestaurarSesion();
     bool LeerArchivoSesion(QJsonObject &root);
-    bool AplicarSessionData(const QJsonObject &root);
-    bool ExisteSesion() const;
 
+    bool ExisteSesion() const;
+    SessionData ObtenerSessionData();
+    bool AplicarSessionData(const SessionData &data);
     void CrearTabla(double recorrido, double intervalo);
     void ConfigurarEstadoInicialEnsayo();
     void EnviarConfiguracionAlMicro();
@@ -195,5 +197,11 @@ private:
     SessionData sessionData;
 
     void ActualizarCelda(int fila , int col, double valor);
+    void AplicarEstado(const Estado &estado);
+    void AplicarTabla(const QVector<FilaMedicion> &tabla);
+    void AplicarConfiguracion(const Configuracion &configuracion);
+
+    QString diferencias="test01";
+    QString CompararSesionConHardware(const SessionData &data);
 };
 #endif // MAINWINDOW_H

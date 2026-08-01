@@ -33,6 +33,8 @@
 #include <QStandardPaths>
 #include <QSaveFile>
 #include <QTextStream>
+#include "dialogorestaurarsesion.h"
+
 using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
@@ -511,6 +513,10 @@ MainWindow::MainWindow(QWidget *parent)
     //connect(config, &Config::update, this, &MainWindow::USB_send_data_integer);
     //connect(config, &Config::update_float, this, &MainWindow::USB_send_data_float);
 
+
+    //connect(ui->actionRestaurarUltima, &QAction::triggered, this, &MainWindow::RestaurarSesion);
+    connect(ui->actionRestaurar_ultima, &QAction::triggered, this, &MainWindow::abrirDialogoRestaurarSesion);
+
     // -------------------------------------------------------------
     // Conexión explícita usando la sintaxis moderna de punteros a función
     // -------------------------------------------------------------
@@ -637,6 +643,19 @@ void MainWindow::abrirDialogoConstantes()
         NotificarCambioEstado();
         //GuardarSesion();
     }
+}
+
+void MainWindow::abrirDialogoRestaurarSesion(void)
+{
+    DialogoRestaurarSesion dlg(this);
+
+    dlg.setDiferencias(diferencias);
+
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    //AplicarSessionData(sessionData);
+    RestaurarSesion();
 }
 bool MainWindow::GuardarConfiguracionTXT()
 {
@@ -1698,7 +1717,7 @@ SessionData MainWindow::ObtenerSessionData()
     sessionData.config.recorridoTotal = ui->recorridoTotal->value();
     sessionData.config.intervalo = ui->intervalo->value();
     sessionData.config.longitudArco = configuracionSistema.longitudArco;
-    sessionData.config.pulsosEncoder = configuracionSistema.encoderPPR;
+    sessionData.config.encoderPPR = configuracionSistema.encoderPPR;
     //sessionData.config.tipoRegistro en cada evento de seleccion es directamente acualizado
     //
     sessionData.estado.recorridoActual = ui->recorridoActual->value();
@@ -1758,25 +1777,11 @@ void MainWindow::ActualizarCelda(int fila , int col, double valor)
     }
 }
 
-/* UNIFICAR CON ESTO
- * void MainWindow::AplicarSessionData(const SessionData &data)
+
+
+void MainWindow::AplicarConfiguracion(const Configuracion &configuracion)
 {
-    BloquearSenalesGUI(true);
-
-    AplicarConfiguracion(data.config);
-
-    CrearTabla(data.config.recorridoTotal,
-               data.config.intervalo);
-
-    AplicarTabla(data.tabla);
-
-    AplicarEstado(data.estado);
-
-    BloquearSenalesGUI(false);
-}*/
-void MainWindow::AplicarSessionData(const SessionData &data)
-{
-    switch (data.config.tipoRegistro)
+    switch (configuracion.tipoRegistro)
     {
         case TipoRegistro::SP: ui->radioButton_SP->setChecked(true);
             break;
@@ -1790,12 +1795,22 @@ void MainWindow::AplicarSessionData(const SessionData &data)
         case TipoRegistro::L: ui->radioButton_L->setChecked(true);
             break;
         default:break;
-
     }
 
-    for(int r=0; r< data.tabla.size(); r++)
+    ui->recorridoTotal->setValue(configuracion.recorridoTotal);
+    ui->intervalo->setValue(configuracion.intervalo);
+
+    //
+    configuracionSistema.encoderPPR = configuracion.encoderPPR;
+    configuracionSistema.longitudArco = configuracion.longitudArco;
+    config->setConfiguracion(configuracionSistema);
+}
+
+void MainWindow::AplicarTabla(const QVector<FilaMedicion> &tabla)
+{
+    for(int r=0; r< tabla.size(); r++)
     {
-        const FilaMedicion &registro = data.tabla[r];
+        const FilaMedicion &registro = tabla[r];
 
         ActualizarCelda(r, 0, registro.posicion);
         ActualizarCelda(r, 1, registro.corriente);
@@ -1805,7 +1820,41 @@ void MainWindow::AplicarSessionData(const SessionData &data)
         ActualizarCelda(r, 5, registro.rnc);
         ActualizarCelda(r, 6, registro.rnl);
     }
+}
 
+void MainWindow::AplicarEstado(const Estado &estado)
+{
+    //estado.ensayoIniciado
+    //estado.ensayoPausado
+    //estado.filaActual
+    //estado.motorActivo
+    //estado.recorridoActual
+
+    //preguntar al micro cual es su recorrido actual, si es diferente, consultar al usuario qué hacer
+
+}
+
+bool MainWindow::AplicarSessionData(const SessionData &data)
+{
+
+    BloquearSenalesGUI(true);
+    //-------------------------------------
+    //if (!root.contains("config"))
+    //{
+    //    ok = false;break;
+    //}
+
+    AplicarConfiguracion(data.config);
+
+    CrearTabla(data.config.recorridoTotal, data.config.intervalo);
+
+    AplicarTabla(data.tabla);
+
+    AplicarEstado(data.estado);
+
+    BloquearSenalesGUI(false);
+
+    return true;
 }
 
 //+++++++++++++++++++++++++++++++++++++++++
@@ -1833,7 +1882,7 @@ QJsonObject SessionData::toJson() const
     QJsonObject configJson;
     configJson["recorridoTotal"] = config.recorridoTotal;
     configJson["intervalo"] = config.intervalo;
-    configJson["pulsosEncoder"] = config.pulsosEncoder;
+    configJson["pulsosEncoder"] = config.encoderPPR;
     configJson["longitudArco"] = config.longitudArco;
 
     configJson["tipoRegistro"] = TipoRegistroToString(config.tipoRegistro);
@@ -1947,15 +1996,13 @@ SessionData SessionData::fromJson(const QJsonObject &root)
     data.config.intervalo =
         config["intervalo"].toDouble();
 
-    data.config.pulsosEncoder =
+    data.config.encoderPPR =
         config["pulsosEncoder"].toInt();
 
     data.config.longitudArco =
         config["longitudArco"].toDouble();
 
-    data.config.tipoRegistro =
-        StringToTipoRegistro(
-            config["tipoRegistro"].toString());
+//    data.config.tipoRegistro =StringToTipoRegistro(config["tipoRegistro"].toString());
 
 
     QJsonObject estado = root["estado"].toObject();
@@ -2052,3 +2099,8 @@ bool MainWindow::AplicarSessionData(const QJsonObject &root)
     return ok;
 }
 */
+
+QString MainWindow::CompararSesionConHardware(const SessionData &data)
+{
+
+}
