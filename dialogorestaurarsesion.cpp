@@ -7,12 +7,12 @@ DialogoRestaurarSesion::DialogoRestaurarSesion(QWidget *parent)
 {
     ui->setupUi(this);
 
-    connect(ui->Restaurar,
+    connect(ui->buttonBox,
             &QDialogButtonBox::accepted,
             this,
             &QDialog::accept);
 
-    connect(ui->Restaurar,
+    connect(ui->buttonBox,
             &QDialogButtonBox::rejected,
             this,
             &QDialog::reject);

@@ -1684,13 +1684,6 @@ void MainWindow::NotificarCambioEstado()
 
     qDebug()<< "Estado modificado";
 }
-// void MainWindow::onEstadoModificado()
-// {
-//     if (m_restaurandoSesion)
-//     {
-//         return;
-//     }
-// }
 
 //-----------------------------------------------------------------
 //No olvidar GuardarSesion() es disparado por
@@ -2064,41 +2057,6 @@ bool MainWindow::RestaurarSesion()
 
     return true;
 }
-
-/* de aqui solo sacar el bloquear senales, no se si deba revisar el config, y asegurar que se reconstruya siempre la tabla al cargar la sesion
-bool MainWindow::AplicarSessionData(const QJsonObject &root)
-{
-    BloquearSenalesGUI(true);
-
-    bool ok = true;
-
-    do
-    {
-        //-------------------------------------
-        // CONFIGURACION
-        //-------------------------------------
-
-        if (!root.contains("config"))
-        {
-            ok = false;
-            break;
-        }
-
-        QJsonObject config = root["config"].toObject();
-
-        ui->recorridoTotal->setValue(
-            config["recorridoTotal"].toDouble());
-
-        ui->intervalo->setValue(
-            config["intervalo"].toDouble());
-
-    }while(false);
-
-    BloquearSenalesGUI(false);
-
-    return ok;
-}
-*/
 
 QString MainWindow::CompararSesionConHardware(const SessionData &data)
 {
