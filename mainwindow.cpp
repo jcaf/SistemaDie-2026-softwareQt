@@ -43,8 +43,6 @@ using namespace OpenXLSX;
 
 void MainWindow::buttons_disable()
 {
-
-
     ui->pushButton_Reset->setEnabled(false);
     ui->pushButton_Motor->setEnabled(false);
 
@@ -58,7 +56,6 @@ void MainWindow::buttons_disable()
 }
 void MainWindow::buttons_enable()
 {
-
     ui->pushButton_Reset->setEnabled(true);
     ui->pushButton_Motor->setEnabled(true);
 
@@ -277,12 +274,17 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
             if ( (tabla_numfila < TABLA_NUM_FILAS_TOTALES) && (!foundit))
             {
 
-                QString str_recorrido_actual = QString::number(recorridoactual,'f',2);
-                QTableWidgetItem* text = new QTableWidgetItem();
-                text->setText(str_recorrido_actual);
+                //QString str_recorrido_actual = QString::number(recorridoactual,'f',2);
+                //QTableWidgetItem* text = new QTableWidgetItem();
+                //text->setText(str_recorrido_actual);
+                //tableWidget->setItem(tabla_numfila,0, text);
 
-                    tableWidget->setItem(tabla_numfila,0, text);
+                QTableWidgetItem *item = tableWidget->item(tabla_numfila, 0);//obtener el puntero actual
+                if (item)
+                {
+                    item->setText(QString::number(recorridoactual,'f',2));
                     tableWidget_columna_setEnabled(0,false);
+
                     // Resaltar la fila actual
                     tableWidget->selectRow(tabla_numfila);
                     tableWidget->setFocus(Qt::OtherFocusReason);
@@ -290,6 +292,7 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
                     ui->pushButton_Inicio->setEnabled(true);
 
                     tabla_numfila++;
+                }
             }
 
             ui->pushButton_Pause->setEnabled(false);
@@ -341,85 +344,31 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
 
             break;
 
+        case USB_DATACODE_RESP_RECORRIDO_ACTUAL:
+        {
+            double recorridoMicro = atof(USB_payload_char);
+
+            qDebug() << "Recorrido solicitado al micro:"
+                     << recorridoMicro;
+
+            if (esperandoRecorridoMicro)
+            {
+                esperandoRecorridoMicro = false;
+                timerRespuestaRecorrido->stop();
+
+                ProcesarRecorridoActualMicro(recorridoMicro);
+            }
+
+            break;
+        }
+
         default: break;
     }
 }
 
 static QString str_acc = "";
 int yy;
-/*
-void MainWindow::readSerial()
-{
-    static char USB_DATACODE;
-    static char USB_payload_char[300];
-    static int8_t USB_payload_idx = 0;
-    static int8_t sm0 = 0;
-    char c;
 
-    QByteArray serialBuff = usbCDC->readAll();
-    QString str_payload = QString::fromStdString(serialBuff.toStdString());
-    str_acc += str_payload;   //acumula el buffer recibido
-
-    qDebug() << "str_acc:" << ++yy << " - " << str_acc << Qt::endl;
-
-    // Procesar sobre str_acc completo
-    for (int i = 0; i < str_acc.length(); i++)
-    {
-        c = str_acc[i].toLatin1(); // tomamos char ASCII
-
-        if (sm0 == 0)
-        {
-            if (c == USB_DATACODE_TOKEN_BEGIN)
-            {
-                USB_payload_idx = 0;
-                sm0++;
-            }
-        }
-        else if (sm0 == 1)
-        {
-            if ((c >= USB_DATACODE_SET_RECORRIDO_TOTAL) && (c <= USB_DATACODE_RESET_BOARD))
-            {
-                USB_DATACODE = c;
-                sm0++;
-            }
-            else
-            {
-                sm0 = 0;
-            }
-        }
-        else if (sm0 == 2) // storage payload
-        {
-            if (c == USB_DATACODE_TOKEN_END)
-            {
-                USB_payload_char[USB_payload_idx] = '\0';
-
-                //Ejecuta comando con trama completa
-                USB_commands(USB_DATACODE, USB_payload_char);
-
-                //Recorta el acumulador solo hasta lo procesado
-                str_acc.remove(0, i + 1);
-                i = -1; // reinicia el for desde el nuevo buffer
-                sm0 = 0;
-            }
-            else
-            {
-                USB_payload_char[USB_payload_idx] = c;
-                USB_payload_idx++;
-            }
-        }
-
-        //Prevención de overflow en el buffer de payload
-        if (USB_payload_idx >= sizeof(USB_payload_char) - 1)
-        {
-            sm0 = 0; // reset state machine
-            USB_payload_idx = 0;
-            qDebug() << "Overflow prevenido en USB_payload_char";
-            continue;
-        }
-    }
-}
-
-*/
 void MainWindow::readSerial()
 {
     static char USB_DATACODE;
@@ -510,11 +459,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
 
     config = new Config(this);
-    //connect(config, &Config::update, this, &MainWindow::USB_send_data_integer);
-    //connect(config, &Config::update_float, this, &MainWindow::USB_send_data_float);
-
-
-    //connect(ui->actionRestaurarUltima, &QAction::triggered, this, &MainWindow::RestaurarSesion);
     connect(ui->actionRestaurar_ultima, &QAction::triggered, this, &MainWindow::abrirDialogoRestaurarSesion);
 
     // -------------------------------------------------------------
@@ -524,10 +468,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionConstantes, &QAction::triggered, this, &MainWindow::abrirDialogoConstantes);
     LeerConfiguracionTXT();
     // -------------------------------------------------------------
-
-    //-----------------------------
     ui->radioButton_L->hide();
-
 
     TABLA_NUM_FILAS_TOTALES = 0;
 
@@ -603,6 +544,14 @@ MainWindow::MainWindow(QWidget *parent)
     //-------------------------------------------------
     ConfigurarAutoSave();
     //----------------------------+ Session manager 2026
+
+    timerRespuestaRecorrido = new QTimer(this);
+    timerRespuestaRecorrido->setSingleShot(true);
+
+    connect(timerRespuestaRecorrido,
+            &QTimer::timeout,
+            this,
+            &MainWindow::TimeoutRecorridoMicro);
 }
 
 MainWindow::~MainWindow()
@@ -638,24 +587,20 @@ void MainWindow::abrirDialogoConstantes()
         USB_send_data_integer(USB_DATACODE_SET_ENCODER_PPR,configuracionSistema.encoderPPR);
         USB_send_data_float(USB_DATACODE_SET_LONGITUD_ARCO,configuracionSistema.longitudArco);
 
-
         GuardarConfiguracionTXT();
         NotificarCambioEstado();
-        //GuardarSesion();
     }
 }
 
 void MainWindow::abrirDialogoRestaurarSesion(void)
 {
-    DialogoRestaurarSesion dlg(this);
-
-    dlg.setDiferencias(diferencias);
-
-    if (dlg.exec() != QDialog::Accepted)
-        return;
-
-    //AplicarSessionData(sessionData);
+    // DialogoRestaurarSesion dlg(this);
+    // dlg.setDiferencias(diferencias);
+    // if (dlg.exec() != QDialog::Accepted)
+    //     return;
+    // //AplicarSessionData(sessionData);
     RestaurarSesion();
+
 }
 bool MainWindow::GuardarConfiguracionTXT()
 {
@@ -718,25 +663,8 @@ bool MainWindow::LeerConfiguracionTXT(void)
     return codret;
 }
 
-/*
- *
-void MainWindow::on_actionConstantes_triggered()
-{
-    // Config mDialog;
-    // mDialog.setModal(true);
-    // mDialog.exec();
-    Config* objconfig = new Config;
-    connect(objconfig, &Config::update, this, &MainWindow::USB_send_data_integer);
-    connect(objconfig, &Config::update_float, this, &MainWindow::USB_send_data_float);
-
-    objconfig->setModal(true);
-    objconfig->exec();
-}
-
- */
 
 //usar overloading la sgte. vez para tener 2 funciones diferentes enviando datos diferentes
-
 void MainWindow::USB_send_data_float(char datacode, float payload0)
 {
     if (usbport_status == true) //added 8/set/2025
@@ -818,20 +746,6 @@ void MainWindow::tableWidget_columna_setEnabled(int col, bool state)
     }
 
 }
-/*
-enum _HEADER_LABEL
-{
-    TABLEPOSC_POSICION  = 0,
-    TABLEPOSC_I_ma,
-    TABLEPOSC_SP_mV,
-    TABLEPOSC_Vnc_mV,
-    TABLEPOSC_Vnl_mV,
-    TABLEPOSC_Vl_mV,
-    TABLEPOSC_Rnc_ohm_m,
-    TABLEPOSC_Rnl_ohm_m,
-    TABLEPOSC_Rl_ohm_m,
-};
-*/
 //cambiado ahora a solo 7 headers
 enum _HEADER_LABEL
 {
@@ -1100,126 +1014,7 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     //--------------------------------------------
     BloquearSenalesGUI(false);
 }
-/*
-void MainWindow::on_pushButton_Aceptar_clicked()
-{
-    //float rt = ui->recorridoTotal->value();
-    RECORRIDOTOTAL = ui->recorridoTotal->value();
-    float itv = ui->intervalo->value();
-    //TABLA_NUM_FILAS_TOTALES =(int) (rt /itv) + TABLA_NUMBER_FILAS_ADICIONALES;
-    TABLA_NUM_FILAS_TOTALES =(int) (RECORRIDOTOTAL /itv) + TABLA_NUMBER_FILAS_ADICIONALES;
 
-    //tableWidget->blockSignals(true);  //desactivar señales
-
-    BloquearSenalesGUI(true);
-
-    tableWidget->setRowCount(TABLA_NUM_FILAS_TOTALES);
-    tableWidget->setColumnCount(TABLA_NUMBER_COLUMNAS);
-
-    tableWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
-    tableWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-
-    //excusa para poder tener un puntero despues con tableWidget->item(r,0)
-    //En realidad, para QTableWidget es necesario inicicializar todos los items como "texto vacio" para que cuando se exporte
-    //al leer el valor de celdas vacias, no de error. Es como si cada celda necesita previamente tener un valor aun asi no se use
-    for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
-    {
-        for (int col=0; col<TABLA_NUMBER_COLUMNAS; col++)
-        {
-            QTableWidgetItem* text = new QTableWidgetItem();
-            text->setText("");
-            tableWidget->setItem(r,col,text);
-        }
-    }
-
-
-    //Posicion disable
-    tableWidget_columna_setEnabled(0,false);
-    // for (int r=0; r < TABLA_NUM_FILAS_TOTALES; r++)
-    // {
-    //     //tableWidget->item(r, 1)->setFlags(tableWidget->item(r, 1)->flags() & ~Qt::ItemIsEditable);
-    //     QTableWidgetItem *dataItem = tableWidget->item(r, 0);
-    //     dataItem->setFlags(dataItem->flags() & ~Qt::ItemIsEditable);
-    // }
-
-
-
-    //deshabilitar los controles
-    ui->recorridoTotal->setEnabled(false);
-    ui->intervalo->setEnabled(false);
-    ui->pushButton_Reset->setEnabled(false);
-
-//    ui->pushButton_Motor->setEnabled(false); //2026
-
-    //
-    // ui->radioButton_SP->setEnabled(false);
-    // ui->radioButton_NC->setEnabled(false);
-    // ui->radioButton_NL->setEnabled(false);
-    // ui->radioButton_L->setEnabled(false);
-    //
-    ui->pushButton_Aceptar->setEnabled(false);
-    ui->pushButton_Inicio->setEnabled(true);
-    ui->pushButton_Parar->setEnabled(true);
-    //
-    ui->pushButton_Reset->setEnabled(false);
-
-
-    //ui->pushButton_Motor->setChecked(false);
-    //added 2026
-    ui->pushButton_Motor->setChecked(true);
-
-    if (ui->pushButton_Motor->isChecked())
-    {
-        ui->pushButton_Motor->setChecked(false);
-        led_motor->setState(false);
-    }
-    tabla_numfila = 0; //reset
-
-//xDebug3
-
-    //qDebug()<<"enviar datos al microcontrolador..."<<Qt::endl;
-    USB_send_data_float(USB_DATACODE_SET_RECORRIDO_TOTAL, RECORRIDOTOTAL );//rt);
-    //QThread::msleep(10);
-    USB_send_data_float(USB_DATACODE_SET_INTERVALO, itv);
-    //QThread::msleep(10);
-    USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
-    //qDebug()<<"fin enviar datos al microcontrolador..."<<Qt::endl;
-
-    //ADD:
-    if (ui->radioButton_SP->isChecked())
-    {
-        tableWidget_enable_for_SP();
-    }
-    else if (ui->radioButton_NC->isChecked())
-    {
-        tableWidget_enable_for_NC();
-    }
-    else if (ui->radioButton_NL->isChecked())
-    {
-        tableWidget_enable_for_NL();
-    }
-    else if (ui->radioButton_L->isChecked())
-    {
-        tableWidget_enable_for_L();
-    }
-
-    //ahora pasa al constructor
-
-    // //new: 8/set/2025
-    // connect(tableWidget, &QTableWidget::cellChanged,
-    //         this, &MainWindow::onCellChanged,
-    //            Qt::UniqueConnection);
-
-
-    //Bug fixed 7:Posible doble conexión de señales
-
-    // Bien hecho , pero ojo: en on_pushButton_Aceptar_clicked() tienes comentada otra conexión similar. Si la descomentas y olvidas el UniqueConnection, tendrás ejecuciones dobles.
-
-
-    //tableWidget->blockSignals(false);
-    BloquearSenalesGUI(false);
-}
-*/
 void MainWindow::tableWidget_enable_for_SP()
 {
     tableWidget_columna_setEnabled(0,false);
@@ -1817,11 +1612,15 @@ void MainWindow::AplicarTabla(const QVector<FilaMedicion> &tabla)
 
 void MainWindow::AplicarEstado(const Estado &estado)
 {
-    //estado.ensayoIniciado
-    //estado.ensayoPausado
-    //estado.filaActual
-    //estado.motorActivo
-    //estado.recorridoActual
+    // sessionData.estado.recorridoActual = ui->recorridoActual->value();
+    // sessionData.estado.motorActivo = ui->pushButton_Motor->isChecked();
+    // sessionData.estado.filaActual = tabla_numfila;
+
+    tabla_numfila = estado.filaActual;
+
+    ui->pushButton_Motor->setChecked(estado.motorActivo);
+    //
+    ui->recorridoActual->setValue(estado.recorridoActual);
 
     //preguntar al micro cual es su recorrido actual, si es diferente, consultar al usuario qué hacer
 
@@ -1846,6 +1645,9 @@ bool MainWindow::AplicarSessionData(const SessionData &data)
     AplicarEstado(data.estado);
 
     BloquearSenalesGUI(false);
+
+    //pedir la posicion actual
+
 
     return true;
 }
@@ -2031,7 +1833,40 @@ SessionData SessionData::fromJson(const QJsonObject &root)
 
     return data;
 }
+void MainWindow::SolicitarRecorridoActualMicro()
+{
+    if (!usbport_status)
+    {
+        QMessageBox::warning(
+            this,
+            tr("Restaurar sesión"),
+            tr("No existe comunicación con la tarjeta de control."));
+        return;
+    }
+
+    esperandoRecorridoMicro = true;
+
+    USB_send_data_integer(
+        USB_DATACODE_GET_RECORRIDO_ACTUAL,
+        0);
+
+    timerRespuestaRecorrido->start(500);
+}
+
 bool MainWindow::RestaurarSesion()
+{
+
+
+    //SessionData data = SessionData::fromJson(root);
+    //recorridoSesionRestaurada = sessionData.estado.recorridoActual;
+
+    SolicitarRecorridoActualMicro();
+
+
+    return true;
+}
+
+bool MainWindow::ProcesarRecorridoActualMicro(double recorridoMicro)
 {
     QJsonObject root;
 
@@ -2042,23 +1877,71 @@ bool MainWindow::RestaurarSesion()
                              tr("No se pudo leer la sesión guardada."));
         return false;
     }
+    SessionData sessionData = SessionData::fromJson(root);
+    QString diferencias = CompararSesionConHardware(sessionData, recorridoMicro);
 
-    SessionData data = SessionData::fromJson(root);
+    DialogoRestaurarSesion dlg(this);
+    dlg.setDiferencias(diferencias);
 
-    if (!AplicarSessionData(data))
+    if (dlg.exec() != QDialog::Accepted)
+        return false;//cancelo la operacion
+
+    if (!AplicarSessionData(sessionData))
     {
         QMessageBox::warning(this,
                              tr("Restaurar sesión"),
                              tr("La sesión está dañada o es incompatible."));
         return false;
     }
-
     qDebug() << "Sesión restaurada.";
-
     return true;
 }
 
-QString MainWindow::CompararSesionConHardware(const SessionData &data)
+QString MainWindow::CompararSesionConHardware(const SessionData &data,  double recorridoMicro)
 {
+    QString diferencias;
 
+    double recorridoSesion = data.estado.recorridoActual;
+
+    double diferencia = qAbs(recorridoMicro - recorridoSesion);
+
+    qDebug()
+        << "Recorrido sesión:" << recorridoSesion
+        << "Recorrido micro:" << recorridoMicro
+        << "Diferencia:" << diferencia;
+
+    const double tolerancia = 0.01;
+
+    if (diferencia <= tolerancia)
+    {
+        qDebug() << "Sesión y hardware coinciden.";
+        diferencias = QString("Sesión y hardware coinciden.");
+    }
+    else
+    {
+        diferencias =
+            QString(
+                "Recorrido guardado en sesión: %1 m\n"
+                "Recorrido actual del equipo: %2 m\n"
+                "Diferencia: %3 m")
+                .arg(recorridoSesion, 0, 'f', 2)
+                .arg(recorridoMicro, 0, 'f', 2)
+                .arg(diferencia, 0, 'f', 2);
+
+    }
+
+    return diferencias;
+}
+void MainWindow::TimeoutRecorridoMicro()
+{
+    if (!esperandoRecorridoMicro)
+        return;
+
+    esperandoRecorridoMicro = false;
+
+    QMessageBox::warning(
+        this,
+        tr("Restaurar sesión"),
+        tr("La tarjeta de control no respondió "
+           "a la consulta del recorrido actual."));
 }

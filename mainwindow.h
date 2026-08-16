@@ -61,7 +61,14 @@
 
 #define USB_DATACODE_CONTROL_ACTIVATED 'O'
 
-#define USB_DATACODE_RESET_BOARD 'P'
+//+-
+#define USB_DATACODE_GET_RECORRIDO_ACTUAL      'P'
+#define USB_DATACODE_RESP_RECORRIDO_ACTUAL     'Q'
+//+-
+
+#define USB_DATACODE_RESET_BOARD 'R'    //USB_DATACODE_RESET_BOARD DEBE SER EL ULTIMO CODIGO
+//if ((c >= USB_DATACODE_SET_RECORRIDO_TOTAL) &&    (c <= USB_DATACODE_RESET_BOARD))
+//++++++++++++++++++++++++++++++++++++++++++++++
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -201,7 +208,15 @@ private:
     void AplicarTabla(const QVector<FilaMedicion> &tabla);
     void AplicarConfiguracion(const Configuracion &configuracion);
 
-    QString diferencias="test01";
-    QString CompararSesionConHardware(const SessionData &data);
+    //QString diferencias="test01";
+
+    QString CompararSesionConHardware(const SessionData &data,  double recorridoMicro);
+
+    bool esperandoRecorridoMicro = false;
+    //double recorridoSesionRestaurada = 0.0;
+    QTimer *timerRespuestaRecorrido = nullptr;
+    void SolicitarRecorridoActualMicro();
+    bool ProcesarRecorridoActualMicro(double recorridoMicro);
+    void TimeoutRecorridoMicro();
 };
 #endif // MAINWINDOW_H
