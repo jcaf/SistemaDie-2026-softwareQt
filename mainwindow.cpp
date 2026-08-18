@@ -591,7 +591,31 @@ void MainWindow::abrirDialogoConstantes()
         NotificarCambioEstado();
     }
 }
+/*
+ * RestaurarSesion()
+       ↓
+Leer JSON
+       ↓
+convertir a SessionData
+       ↓
+guardar temporalmente esa sesión
+       ↓
+pedir recorrido al AVR
+       ↓
+return
 
+
+Después:
+
+respuesta del AVR
+       ↓
+usar exactamente la SessionData
+que ya habíamos leído
+       ↓
+comparar
+       ↓
+mostrar diálogo
+ */
 void MainWindow::abrirDialogoRestaurarSesion(void)
 {
     // DialogoRestaurarSesion dlg(this);
@@ -1620,15 +1644,13 @@ void MainWindow::AplicarEstado(const Estado &estado)
 
     ui->pushButton_Motor->setChecked(estado.motorActivo);
     //
-    ui->recorridoActual->setValue(estado.recorridoActual);
+    //ui->recorridoActual->setValue(estado.recorridoActual);
 
-    //preguntar al micro cual es su recorrido actual, si es diferente, consultar al usuario qué hacer
 
 }
 
 bool MainWindow::AplicarSessionData(const SessionData &data)
 {
-
     BloquearSenalesGUI(true);
     //-------------------------------------
     //if (!root.contains("config"))
@@ -1645,8 +1667,6 @@ bool MainWindow::AplicarSessionData(const SessionData &data)
     AplicarEstado(data.estado);
 
     BloquearSenalesGUI(false);
-
-    //pedir la posicion actual
 
 
     return true;
@@ -1833,104 +1853,226 @@ SessionData SessionData::fromJson(const QJsonObject &root)
 
     return data;
 }
-void MainWindow::SolicitarRecorridoActualMicro()
+
+
+/*Se agrego a la condición de usbport_!status
+ * !usbCDC->isOpen()
+ *porque usbport_status te dice que el dispositivo ha sido detectado, pero para mandar una consulta lo realmente importante es que QSerialPort esté abierto.
+
+Además:
+if (esperandoRecorridoMicro)
+    return false;
+evita lanzar una segunda consulta mientras la primera todavía está pendiente.
+ */
+bool MainWindow::SolicitarRecorridoActualMicro()
 {
-    if (!usbport_status)
+    if (!usbport_status || !usbCDC->isOpen())
     {
         QMessageBox::warning(
             this,
             tr("Restaurar sesión"),
             tr("No existe comunicación con la tarjeta de control."));
-        return;
+        return false;
     }
+
+    if (esperandoRecorridoMicro)
+        return false;
 
     esperandoRecorridoMicro = true;
 
-    USB_send_data_integer(
-        USB_DATACODE_GET_RECORRIDO_ACTUAL,
-        0);
+    USB_send_data_integer(USB_DATACODE_GET_RECORRIDO_ACTUAL, 0);
 
     timerRespuestaRecorrido->start(500);
-}
-
-bool MainWindow::RestaurarSesion()
-{
-
-
-    //SessionData data = SessionData::fromJson(root);
-    //recorridoSesionRestaurada = sessionData.estado.recorridoActual;
-
-    SolicitarRecorridoActualMicro();
-
 
     return true;
 }
+/*
+ * RestaurarSesion()
+    = cargar sesión + iniciar consulta
 
-bool MainWindow::ProcesarRecorridoActualMicro(double recorridoMicro)
+ProcesarRecorridoActualMicro()
+    = ya tengo sesión + ya tengo hardware
+      → comparar y decidir
+
+
+Menú Restaurar
+      │
+      ▼
+RestaurarSesion()
+      │
+      ├── leer session.json
+      ├── sessionData = fromJson(...)
+      │
+      └── SolicitarRecorridoActualMicro()
+                     │
+                     ├── esperando = true
+                     ├── enviar @Q0
+                     └── timer 500 ms
+
+                         ↓
+
+             AVR responde @R3.92
+
+                         ↓
+
+                   readyRead()
+                         ↓
+                   readSerial()
+                         ↓
+                  USB_commands()
+                         ↓
+             RESP_RECORRIDO_ACTUAL
+                         │
+                         ├── esperando = false
+                         ├── stop timer
+                         │
+                         ▼
+          ProcesarRecorridoActualMicro()
+                         │
+                         ├── comparar con sessionData
+                         ├── mostrar diferencias
+                         │
+                  Cancelar│Aceptar
+                         │
+                         ▼
+                AplicarSessionData()
+*/
+
+/*
+ *                   session.json
+                       │
+              recorrido = 3.00
+                       │
+                       ▼
+                  comparación
+                       ▲
+                       │
+Micro ────────► recorrido = 3.27
+                       │
+                       ├────► GUI muestra 3.27
+                       │
+                       ▼
+                ¿Desea restaurar?
+                  /           \
+             Cancelar       Restaurar
+                │               │
+                │               ├─ configuración
+                │               ├─ tabla
+                │               ├─ fila actual
+                │               └─ demás estado
+                │
+                └─────────────────────────┐
+                                          ▼
+                              GUI continúa mostrando
+                                      3.27
+*/
+bool MainWindow::RestaurarSesion()
 {
     QJsonObject root;
 
     if (!LeerArchivoSesion(root))
     {
-        QMessageBox::warning(this,
-                             tr("Restaurar sesión"),
-                             tr("No se pudo leer la sesión guardada."));
+        QMessageBox::warning(
+            this,
+            tr("Restaurar sesión"),
+            tr("No se pudo leer la sesión guardada."));
+
         return false;
     }
-    SessionData sessionData = SessionData::fromJson(root);
-    QString diferencias = CompararSesionConHardware(sessionData, recorridoMicro);
 
-    DialogoRestaurarSesion dlg(this);
-    dlg.setDiferencias(diferencias);
+    sessionData = SessionData::fromJson(root);
 
-    if (dlg.exec() != QDialog::Accepted)
-        return false;//cancelo la operacion
-
-    if (!AplicarSessionData(sessionData))
-    {
-        QMessageBox::warning(this,
-                             tr("Restaurar sesión"),
-                             tr("La sesión está dañada o es incompatible."));
+    if (!SolicitarRecorridoActualMicro())
         return false;
-    }
-    qDebug() << "Sesión restaurada.";
+
     return true;
 }
 
-QString MainWindow::CompararSesionConHardware(const SessionData &data,  double recorridoMicro)
+bool MainWindow::RecorridoCoincide(const SessionData &data, double recorridoMicro)
 {
-    QString diferencias;
+    const double tolerancia = 0.005;
 
-    double recorridoSesion = data.estado.recorridoActual;
+    double diferencia = qAbs(recorridoMicro - data.estado.recorridoActual);
 
-    double diferencia = qAbs(recorridoMicro - recorridoSesion);
+    return diferencia <= tolerancia;
+}
 
-    qDebug()
-        << "Recorrido sesión:" << recorridoSesion
-        << "Recorrido micro:" << recorridoMicro
-        << "Diferencia:" << diferencia;
+//Es llamado cuando responde el micro con el recorrido actual
+bool MainWindow::ProcesarRecorridoActualMicro( double recorridoMicro)
+{
+    // La GUI siempre debe mostrar la posición real actual del equipo
+    ui->recorridoActual->setValue(recorridoMicro);
 
-    const double tolerancia = 0.01;
+    const bool coinciden = RecorridoCoincide(sessionData, recorridoMicro);
 
-    if (diferencia <= tolerancia)
+    QString diferencias = CompararSesionConHardware(sessionData, recorridoMicro);
+
+    DialogoRestaurarSesion dlg(this);
+
+    dlg.setDiferencias(diferencias);
+
+    if (coinciden)
     {
-        qDebug() << "Sesión y hardware coinciden.";
-        diferencias = QString("Sesión y hardware coinciden.");
+        dlg.setWindowTitle(
+            tr("Restaurar sesión"));
     }
     else
     {
-        diferencias =
-            QString(
-                "Recorrido guardado en sesión: %1 m\n"
-                "Recorrido actual del equipo: %2 m\n"
-                "Diferencia: %3 m")
-                .arg(recorridoSesion, 0, 'f', 2)
-                .arg(recorridoMicro, 0, 'f', 2)
-                .arg(diferencia, 0, 'f', 2);
-
+        dlg.setWindowTitle(
+            tr("Advertencia al restaurar sesión"));
     }
 
-    return diferencias;
+    if (dlg.exec() != QDialog::Accepted)
+    {
+        // Canceló la restauración,
+        // pero recorridoActual ya quedó actualizado
+        // con el valor real recibido del micro.
+        return false;
+    }
+
+
+    if (!AplicarSessionData(sessionData))
+    {
+        QMessageBox::warning(
+            this,
+            tr("Restaurar sesión"),
+            tr("La sesión está dañada o es incompatible."));
+
+        return false;
+    }
+
+    qDebug() << "Sesión restaurada.";
+
+    return true;
+}
+
+QString MainWindow::CompararSesionConHardware(
+    const SessionData &data,
+    double recorridoMicro)
+{
+    double recorridoSesion =
+        data.estado.recorridoActual;
+
+    double diferencia =
+        qAbs(recorridoMicro - recorridoSesion);
+
+    if (diferencia <= 0.005)
+    {
+        return QString(
+            "La posición actual del equipo coincide "
+            "con la sesión guardada.");
+    }
+
+    return QString(
+               "Se detectó una diferencia entre la sesión guardada "
+               "y la posición actual del equipo.\n\n"
+               "Recorrido guardado: %1 m\n"
+               "Recorrido actual: %2 m\n"
+               "Diferencia: %3 m\n\n"
+               "¿Desea continuar con la restauración?")
+        .arg(recorridoSesion, 0, 'f', 2)
+        .arg(recorridoMicro, 0, 'f', 2)
+        .arg(diferencia, 0, 'f', 2);
 }
 void MainWindow::TimeoutRecorridoMicro()
 {

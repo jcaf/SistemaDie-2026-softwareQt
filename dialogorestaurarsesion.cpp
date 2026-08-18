@@ -1,5 +1,6 @@
 #include "dialogorestaurarsesion.h"
 #include "ui_dialogorestaurarsesion.h"
+#include <QPushButton>
 
 DialogoRestaurarSesion::DialogoRestaurarSesion(QWidget *parent)
     : QDialog(parent)
@@ -16,6 +17,10 @@ DialogoRestaurarSesion::DialogoRestaurarSesion(QWidget *parent)
             &QDialogButtonBox::rejected,
             this,
             &QDialog::reject);
+
+    //added: para cambiar el texto de los botones:
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Restaurar"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("Cancelar"));
 }
 
 DialogoRestaurarSesion::~DialogoRestaurarSesion()
@@ -23,8 +28,7 @@ DialogoRestaurarSesion::~DialogoRestaurarSesion()
     delete ui;
 }
 
-void DialogoRestaurarSesion::setDiferencias(
-    const QString &texto)
+void DialogoRestaurarSesion::setDiferencias(const QString &texto)
 {
     ui->plainTextEdit->setPlainText(texto);
 }

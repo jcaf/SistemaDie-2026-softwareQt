@@ -208,15 +208,13 @@ private:
     void AplicarTabla(const QVector<FilaMedicion> &tabla);
     void AplicarConfiguracion(const Configuracion &configuracion);
 
-    //QString diferencias="test01";
-
     QString CompararSesionConHardware(const SessionData &data,  double recorridoMicro);
 
     bool esperandoRecorridoMicro = false;
-    //double recorridoSesionRestaurada = 0.0;
     QTimer *timerRespuestaRecorrido = nullptr;
-    void SolicitarRecorridoActualMicro();
+    bool SolicitarRecorridoActualMicro();
     bool ProcesarRecorridoActualMicro(double recorridoMicro);
     void TimeoutRecorridoMicro();
+    bool RecorridoCoincide(const SessionData &data, double recorridoMicro);
 };
 #endif // MAINWINDOW_H
