@@ -13,7 +13,9 @@
 #include "ledindicator.h"
 #include "config.h"
 #include <QTimer>
-
+#include <QPushButton>
+#include <QRadioButton>
+#include <QDoubleSpinBox>
 ////////////////2026
 #include "sessiondata.h"
 ///////////////////////
@@ -216,5 +218,16 @@ private:
     bool ProcesarRecorridoActualMicro(double recorridoMicro);
     void TimeoutRecorridoMicro();
     bool RecorridoCoincide(const SessionData &data, double recorridoMicro);
+
+    bool m_huboDesconexionUSB = false;
+    bool m_restaurandoSesion = false;
+    bool m_sesionModificada = false;
+
+    QList<QDoubleSpinBox*> m_spinBoxes;
+    QList<QRadioButton*>   m_radioButtons;
+    //QList<QLineEdit*>      m_lineEdits;
+    //QList<QCheckBox*>      m_checkBoxes;
+    QList<QPushButton*> m_pushButtons;
+
 };
 #endif // MAINWINDOW_H

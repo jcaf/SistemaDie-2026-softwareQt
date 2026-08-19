@@ -537,7 +537,7 @@
      </font>
     </property>
     <property name="text">
-     <string>version 1.1 - 2025</string>
+     <string>version 2.0 - 2026</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_9">

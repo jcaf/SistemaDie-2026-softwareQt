@@ -60,3 +60,7 @@ void LedIndicator::setLedSize(int size)
     setFixedSize(size+10, size+10);
     repaint();
 }
+bool LedIndicator::isOn() const
+{
+    return lit;
+}

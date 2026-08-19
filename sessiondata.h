@@ -27,12 +27,26 @@
 
     struct Estado
     {
-        double recorridoActual = 0.0;
+
         int filaActual = 0;
-        bool ensayoIniciado = false;
-        bool ensayoPausado = false;
-        bool motorActivo = false;
-        //long encoderActual = 0;
+        //
+        double recorridoActual = 0.0;
+        bool recorridoTotal_isEnabled = false;
+        //
+        bool intervalo_isEnabled = false;
+        //
+        bool pushButton_Reset_isEnabled = false;
+
+        bool pushButton_Motor_isChecked = false;
+        bool pushButton_Motor_isEnabled = false;
+        bool led_motor_state = false;
+        bool led_motor_isEnabled = false;
+        //
+        bool pushButton_Inicio_isEnabled = false;
+        bool pushButton_Pausa_isEnabled= false;
+        bool pushButton_Parar_isEnabled = false;
+        bool pushButton_Aceptar_isEnabled = false;
+
 
     };
 
@@ -47,7 +61,25 @@
         double rnl = 0;
 
     };
+/*
+ * toJson()                         fromJson()
+────────────────────            ────────────────────
 
+NO static                        static
+
+Tiene this                       NO tiene this
+
+Trabaja sobre                    Tiene que crear
+un SessionData existente         un SessionData
+
+sessionData.toJson()             SessionData::fromJson(root)
+
+Dentro:                          Dentro:
+
+config.xxx                       data.config.xxx
+estado.xxx                       data.estado.xxx
+tabla                            data.tabla
+ * */
     struct SessionData
     {
         int version = 1;

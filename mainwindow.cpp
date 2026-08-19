@@ -122,17 +122,128 @@ bool MainWindow::usbport_available(void)
     }
     usbport_status = usbport_status_temp;
 
+    /*Sí. En tu arquitectura actual, lo más limpio es aprovechar que usbport_available() ya detecta el cambio de estado mediante usbport_status_last != usbport_status. Cuando aparece el USB abres el puerto y habilitas la GUI; cuando desaparece cierras el puerto y deshabilitas controles.
+
+    Yo no mostraría inmediatamente un QMessageBox adicional del tipo “¿Desea restaurar?”. Ya tienes RestaurarSesion() → consulta del recorrido al micro → DialogoRestaurarSesion, que finalmente permite Restaurar/Cancelar. Así evitas preguntar dos veces.
+    Aplicación arranca
+          ↓
+    USB aparece por primera vez
+          ↓
+    NO preguntar por restauración
+
+
+    USB estaba conectado
+          ↓
+    se desconecta
+          ↓
+    marcamos:
+    m_huboDesconexionUSB = true
+
+
+    USB vuelve a conectarse
+          ↓
+    detectamos que fue una RECONEXIÓN
+          ↓
+    RestaurarSesion()
+          ↓
+    GET recorrido actual
+          ↓
+    micro responde
+          ↓
+    comparar sesión/hardware
+          ↓
+    [ Restaurar ] [ Cancelar ]
+    *
+    *
+    *6. Hay un detalle importante en usbport_available()
+
+Actualmente haces:
+
+usbport_status = usbport_status_temp;
+
+
+if (usbport_status_last != usbport_status)
+{
+    usbport_status_last = usbport_status;
+
+Eso está bien para detectar flancos:
+
+false → true    conexión
+true  → false   desconexión
+
+Pero al iniciar la aplicación tienes:
+
+usbport_status = false;
+usbport_status_last = usbport_status;
+
+Por eso la primera conexión produce:
+
+false → true
+
+igual que una reconexión.
+
+La bandera adicional:
+
+m_huboDesconexionUSB
+
+es precisamente la que distingue ambos casos:
+
+ARRANQUE DEL SOFTWARE
+
+
+status_last = false
+status      = true
+m_huboDesconexionUSB = false
+
+
+→ conecta normalmente
+→ NO pregunta restauración
+
+Mientras que:
+
+DESCONEXIÓN
+
+
+true → false
+
+
+m_huboDesconexionUSB = true
+
+y luego:
+
+RECONEXIÓN
+
+
+false → true
+m_huboDesconexionUSB = true
+
+
+→ sí inicia RestaurarSesion()
+
+Eso responde exactamente a tu requisito de sólo hacerlo cuando la aplicación ya estaba activa y hubo una desconexión real.
+     */
     if (usbport_status_last != usbport_status )
     {
         usbport_status_last = usbport_status;
 
-        if (usbport_status == true)
+        if (usbport_status == true)// conectar
         {
-            //usbCDC = new QSerialPort; //bug... se traslada directo al constructor pero con this
 
             usbCDC->setPortName(usbCDC_port_name);
-            //usbCDC->open(QSerialPort::WriteOnly);
-            usbCDC->open(QSerialPort::ReadWrite);
+
+            if (!usbCDC->open(QSerialPort::ReadWrite))
+            {
+                qDebug() << "No se pudo abrir el puerto"
+                         << usbCDC_port_name
+                         << usbCDC->errorString();
+                // NO limpiar m_huboDesconexionUSB
+                return false;
+            }
+
+            //usbCDC = new QSerialPort; //bug... se traslada directo al constructor pero con this
+
+
+            //usbCDC->open(QSerialPort::ReadWrite);
             //usbCDC->open(QSerialPort::ReadOnly);//ok x lecturas
             //usbCDC->setBaudRate(QSerialPort::Baud38400);
             //usbCDC->setBaudRate(QSerialPort::Baud115200);
@@ -159,16 +270,157 @@ bool MainWindow::usbport_available(void)
             //
 
             buttons_enable();
+
+            //added
+            // configurar puerto...
+            // ----------------------------------------
+            // ¿Es una reconexión después de una caída?
+            // ----------------------------------------
+            if (m_huboDesconexionUSB)
+            {
+                m_huboDesconexionUSB = false;
+
+                qDebug()
+                    << "USB reconectado. Verificando restauración de sesión...";
+
+                /*
+                 * No lo ejecutamos directamente dentro del manejo
+                 * de conexión. Dejamos terminar usbport_available()
+                 * y después iniciamos el proceso de restauración.
+                 *
+                 * 4. ¿Por qué uso QTimer::singleShot(100, ...)?
+
+No porque necesites “esperar” al micro bloqueando el programa.
+
+Es justamente lo contrario.
+
+Cuando detectas la conexión estás dentro de:
+usbport_available()
+y acabas de:
+
+usbCDC->open(...)
+configurar el puerto, habilitar botones y enviar incluso:
+
+USB_DATACODE_SET_SELECTOR
+
+En vez de meter inmediatamente toda la restauración dentro de esa misma función, hacemos:
+
+QTimer::singleShot(100, this, ...);
+que significa:
+
+termina usbport_available()
+        ↓
+Qt vuelve al event loop
+        ↓
+procesa eventos seriales pendientes
+        ↓
+100 ms después
+        ↓
+inicia restauración
+
+No bloquea absolutamente nada.
+
+Incluso podrías usar:
+
+QTimer::singleShot(0, ...)
+pero en una reconexión USB física prefiero dejar un pequeño margen antes de enviar el GET al AVR.
+
+
+Dentro del singleShot, tienes:
+
+if (usbport_status &&
+    usbCDC->isOpen() &&
+    ExisteSesion())
+{
+    RestaurarSesion();
+}
+
+Eso evita tres casos problemáticos:
+
+1. el USB volvió a desaparecer durante esos 100 ms
+2. QSerialPort no quedó realmente abierto
+3. no existe session.json
+
+Y si no existe sesión, yo no mostraría ningún mensaje al reconectarse. Simplemente continúas normalmente; no hay nada que restaurar.
+
+Con estos cambios tienes una recuperación bastante natural:
+
+USB se desconecta
+       ↓
+GUI indica desconectado
+       ↓
+no se bloquea la aplicación
+       ↓
+USB vuelve
+       ↓
+puerto se abre
+       ↓
+se solicita automáticamente
+posición actual al AVR
+       ↓
+se compara contra session.json
+       ↓
+DialogoRestaurarSesion
+
+
+"Recorrido guardado: 3.00 m
+ Recorrido actual:    3.27 m
+ Diferencia:          0.27 m
+
+
+ ¿Desea continuar con la restauración?"
+
+
+[ Restaurar ] [ Cancelar ]
+
+Y tanto si selecciona Restaurar como Cancelar, podemos aplicar después lo que comentaste: mantener ui->recorridoActual mostrando el valor real recibido del micro. Ese sería el siguiente ajuste que haría sobre ProcesarRecorridoActualMicro().
+                 */
+
+                QTimer::singleShot(100, this, [this]()
+                                   {
+                                       if (usbport_status &&
+                                           usbCDC->isOpen() &&
+                                           ExisteSesion())
+                                       {
+                                           RestaurarSesion();
+                                       }
+                                   });
+            }
         }
-        else
+        else // desconectar
         {
+            /*
+             * Si estábamos esperando una respuesta del micro,
+             * esa transacción ya no puede completarse.
+             *
+             * Esto último es importante por otro motivo: actualmente tienes un timeout asociado a la consulta del recorrido. El timer se crea como singleShot y está conectado con TimeoutRecorridoMicro()
+             * Si la tarjeta desaparece mientras:
+
+                esperandoRecorridoMicro == true
+
+                no tiene sentido dejar los 500 ms corriendo para después mostrar:
+
+                La tarjeta de control no respondió...
+
+                Ya sabemos por qué no respondió: se desconectó.
+
+                Por eso conviene cancelar inmediatamente:
+                esperandoRecorridoMicro = false;
+                timerRespuestaRecorrido->stop();
+             */
+            if (esperandoRecorridoMicro)
+            {
+                esperandoRecorridoMicro = false;
+
+                if (timerRespuestaRecorrido)
+                    timerRespuestaRecorrido->stop();
+            }
+
+            m_restaurandoSesion = false;//porque esa operación de restauración quedó abortada.
+
             //if (usbCDC)//ya no es necesario preguntar si el puntero es diferente de null porque nunca lo debi setear asi
-            //{
-                if (usbCDC->isOpen())
-                {
-                    usbCDC->close();
-                }
-            //}
+            if (usbCDC->isOpen())
+                usbCDC->close();
 
             //QMessageBox::warning(this, "Port error", "Tarjeta de control no encontrado");
             //ui->status->setText("Port error, Tarjeta de control no encontrado");
@@ -177,6 +429,9 @@ bool MainWindow::usbport_available(void)
             led_enlace->setState(false);
 
             buttons_disable();
+
+            // Recordamos que hubo una desconexión real.
+            m_huboDesconexionUSB = true;
         }
     }
 
@@ -447,10 +702,7 @@ void MainWindow::readSerial()
         }
     }
 }
-QList<QDoubleSpinBox*> m_spinBoxes;
-QList<QRadioButton*>   m_radioButtons;
-//QList<QLineEdit*>      m_lineEdits;
-//QList<QCheckBox*>      m_checkBoxes;
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -530,6 +782,7 @@ MainWindow::MainWindow(QWidget *parent)
     //+------------------------- Session manager 2026
     m_spinBoxes    = findChildren<QDoubleSpinBox*>();
     m_radioButtons = findChildren<QRadioButton*>();
+    m_pushButtons  = findChildren<QPushButton*>();
     // m_lineEdits    = findChildren<QLineEdit*>();
     // m_checkBoxes   = findChildren<QCheckBox*>();
 
@@ -1324,15 +1577,27 @@ void MainWindow::on_pushButton_Exportar_clicked()
     }
 }
 
-//---------------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------------
-bool m_restaurandoSesion = false;
-bool m_sesionModificada = false;
-
+/*
+ * Como ya tengo listas cacheadas como m_spinBoxes, m_radioButtons y probablemente m_pushButtons, es mejor reutilizarlas en vez de ejecutar findChildren<>() cada vez.
+ * */
 void MainWindow::BloquearSenalesGUI(bool bloquear)
 {
+    foreach (QDoubleSpinBox *spin, m_spinBoxes)
+    {
+        spin->blockSignals(bloquear);
+    }
+
+    foreach (QRadioButton *radio, m_radioButtons)
+    {
+        radio->blockSignals(bloquear);
+    }
+
+    foreach (QPushButton *button, m_pushButtons)
+    {
+        button->blockSignals(bloquear);
+    }
+
+    /*
     foreach (QDoubleSpinBox *spin,
              findChildren<QDoubleSpinBox*>())
     {
@@ -1344,7 +1609,13 @@ void MainWindow::BloquearSenalesGUI(bool bloquear)
     {
         radio->blockSignals(bloquear);
     }
-    /*
+
+    foreach (QPushButton *button,
+             findChildren<QPushButton*>())
+    {
+        button->blockSignals(bloquear);
+    }
+
     foreach (QLineEdit *edit,
              findChildren<QLineEdit*>())
     {
@@ -1381,6 +1652,29 @@ void MainWindow::ConfigurarAutoSave()
                 });
     }
 
+    foreach (QPushButton *button, m_pushButtons)
+    {
+        if (button == ui->pushButton_Exportar)
+            continue;
+
+        if (button->isCheckable())
+        {
+            connect(button,
+                    &QPushButton::toggled,
+                    this,
+                    [this](bool)
+                    {
+                        NotificarCambioEstado();
+                    });
+        }
+        else
+        {
+            connect(button,
+                    &QPushButton::clicked,
+                    this,
+                    &MainWindow::NotificarCambioEstado);
+        }
+    }
     /*
      *     foreach (QDoubleSpinBox *spin, findChildren<QDoubleSpinBox*>() )
     {
@@ -1511,19 +1805,25 @@ void MainWindow::GuardarSesion()
 {
     qDebug() << "guardando sesion";
 
+    if (m_restaurandoSesion)
+    {
+        qDebug() << "Autosave ignorado: restauración en curso";
+        return;
+    }
+
     if (!m_sesionModificada)
         return;
 
     SessionData data = ObtenerSessionData();
 
-    if (EscribirArchivoSesion(data.toJson()) )
+    if (EscribirArchivoSesion(data.toJson()))
     {
         m_sesionModificada = false;
 
-        qDebug() << "Sesin guardada";
+        qDebug() << "Sesion guardada";
     }
 }
-//----------------------------------------------------
+//De GUI hacia structs ----------------------------------------------------
 SessionData MainWindow::ObtenerSessionData()
 {
     sessionData.config.recorridoTotal = ui->recorridoTotal->value();
@@ -1532,10 +1832,26 @@ SessionData MainWindow::ObtenerSessionData()
     sessionData.config.encoderPPR = configuracionSistema.encoderPPR;
     //sessionData.config.tipoRegistro en cada evento de seleccion es directamente acualizado
     //
-    sessionData.estado.recorridoActual = ui->recorridoActual->value();
-    sessionData.estado.motorActivo = ui->pushButton_Motor->isChecked();
     sessionData.estado.filaActual = tabla_numfila;
-    //data.estado.encoderActual =;
+    //
+    sessionData.estado.recorridoActual = ui->recorridoActual->value();
+    sessionData.estado.recorridoTotal_isEnabled = ui->recorridoTotal->isEnabled();
+    //
+    sessionData.estado.intervalo_isEnabled = ui->intervalo->isEnabled();
+
+    sessionData.estado.pushButton_Reset_isEnabled= ui->pushButton_Reset->isEnabled();
+
+    sessionData.estado.pushButton_Motor_isChecked = ui->pushButton_Motor->isChecked();
+    sessionData.estado.pushButton_Motor_isEnabled = ui->pushButton_Motor->isEnabled();
+
+    sessionData.estado.led_motor_state = led_motor->isOn();
+    sessionData.estado.led_motor_isEnabled= led_motor->isEnabled();
+
+    sessionData.estado.pushButton_Inicio_isEnabled = ui->pushButton_Inicio->isEnabled();
+    sessionData.estado.pushButton_Pausa_isEnabled = ui->pushButton_Pause->isEnabled();
+    sessionData.estado.pushButton_Parar_isEnabled = ui->pushButton_Parar->isEnabled();
+    sessionData.estado.pushButton_Aceptar_isEnabled = ui->pushButton_Aceptar->isEnabled();
+
 
 
 
@@ -1610,6 +1926,7 @@ void MainWindow::AplicarConfiguracion(const Configuracion &configuracion)
     }
 
     ui->recorridoTotal->setValue(configuracion.recorridoTotal);
+
     ui->intervalo->setValue(configuracion.intervalo);
 
     //
@@ -1636,19 +1953,62 @@ void MainWindow::AplicarTabla(const QVector<FilaMedicion> &tabla)
 
 void MainWindow::AplicarEstado(const Estado &estado)
 {
-    // sessionData.estado.recorridoActual = ui->recorridoActual->value();
-    // sessionData.estado.motorActivo = ui->pushButton_Motor->isChecked();
-    // sessionData.estado.filaActual = tabla_numfila;
 
     tabla_numfila = estado.filaActual;
+    // Resaltar la fila actual
+    // tableWidget->selectRow(tabla_numfila);
+    // tableWidget->setFocus(Qt::OtherFocusReason);
+    // //
 
-    ui->pushButton_Motor->setChecked(estado.motorActivo);
+    ui->recorridoTotal->setEnabled(estado.recorridoTotal_isEnabled);
+    ui->intervalo->setEnabled(estado.intervalo_isEnabled);
+
+    ui->pushButton_Reset->setEnabled(estado.pushButton_Reset_isEnabled);
+
+    ui->pushButton_Motor->setChecked(estado.pushButton_Motor_isChecked);
+    ui->pushButton_Motor->setEnabled(estado.pushButton_Motor_isEnabled);
+
+    led_motor->setEnabled(estado.led_motor_isEnabled);
+    led_motor->setState(estado.led_motor_state);
+
+    //
+    ui->pushButton_Inicio->setEnabled(estado.pushButton_Inicio_isEnabled);
+    ui->pushButton_Pause->setEnabled(estado.pushButton_Pausa_isEnabled);
+    ui->pushButton_Parar->setEnabled(estado.pushButton_Parar_isEnabled);
+    ui->pushButton_Aceptar->setEnabled(estado.pushButton_Aceptar_isEnabled);
+
     //
     //ui->recorridoActual->setValue(estado.recorridoActual);
 
 
 }
+/*
+ *
+El patrón que buscamos es este:
+m_restaurandoSesion = true;
 
+BloquearSenalesGUI(true);
+
+AplicarSessionData(sessionData);
+
+BloquearSenalesGUI(false);
+
+m_restaurandoSesion = false;
+
+En tu código actual, AplicarSessionData() ya hace internamente el bloqueo y desbloqueo de señales:
+
+El esquema real que tienes debería ser:
+
+m_restaurandoSesion = true;
+
+// consulta al micro, diálogo, etc.
+
+AplicarSessionData(sessionData);
+// dentro ya bloquea/desbloquea señales
+
+
+m_restaurandoSesion = false;
+ * */
 bool MainWindow::AplicarSessionData(const SessionData &data)
 {
     BloquearSenalesGUI(true);
@@ -1672,9 +2032,8 @@ bool MainWindow::AplicarSessionData(const SessionData &data)
     return true;
 }
 
-//+++++++++++++++++++++++++++++++++++++++++
 
-/*
+/* Funciones libres o no-miembros de Mainwindow
  * Json solo entiende: texto, numero, boolean, array, objeto
  */
 QString TipoRegistroToString(TipoRegistro tipo)
@@ -1688,26 +2047,63 @@ QString TipoRegistroToString(TipoRegistro tipo)
         default: return "SP";
     }
 }
+TipoRegistro StringToTipoRegistro(const QString &tipoReg)
+{
+    if (tipoReg == "SP")
+        return TipoRegistro::SP;
+    if (tipoReg == "NC")
+        return TipoRegistro::NC;
+    if (tipoReg == "NL")
+        return TipoRegistro::NL;
+    if (tipoReg == "L")
+        return TipoRegistro::L;
 
+    return TipoRegistro::SP;//x default
+}
+
+/*función miembro no estática de SessionData.
+ * entro de ella puedes acceder directamente a:
+    version
+    config
+    estado
+    tabla
+ * */
 QJsonObject SessionData::toJson() const
 {
     QJsonObject root;
     root["version"] = version;//jala a su variable miembro
+
     //-----------------------------
     QJsonObject configJson;
     configJson["recorridoTotal"] = config.recorridoTotal;
     configJson["intervalo"] = config.intervalo;
     configJson["pulsosEncoder"] = config.encoderPPR;
     configJson["longitudArco"] = config.longitudArco;
-
     configJson["tipoRegistro"] = TipoRegistroToString(config.tipoRegistro);
     //-----------------------------
 
     QJsonObject estadoJson;
-    estadoJson["recorridoActual"] = estado.recorridoActual;
     estadoJson["filaActual"] = estado.filaActual;
-    estadoJson["motorActivo"] = estado.motorActivo;
-    //estadoJson["encoderActual"] = estado.encoderActual;
+    estadoJson["recorridoActual"] = estado.recorridoActual;
+
+    estadoJson["recorridoTotal_isEnabled"] = estado.recorridoTotal_isEnabled;
+    estadoJson["intervalo_isEnabled"] =  estado.intervalo_isEnabled;
+
+
+    estadoJson["pushButton_Reset_isEnable"] = estado.pushButton_Reset_isEnabled;
+
+    estadoJson["pushButton_Motor_isChecked"] = estado.pushButton_Motor_isChecked;
+    estadoJson["pushButton_Motor_isEnabled"] = estado.pushButton_Motor_isEnabled;
+
+    estadoJson["led_motor_isEnabled"] = estado.led_motor_isEnabled;
+    estadoJson["led_motor_state"] = estado.led_motor_state;
+
+    estadoJson["pushButton_Inicio_isEnabled"] = estado.pushButton_Inicio_isEnabled;
+    estadoJson["pushButton_Pausa_isEnabled"] = estado.pushButton_Pausa_isEnabled;
+    estadoJson["pushButton_Parar_isEnabled"] = estado.pushButton_Parar_isEnabled;
+    estadoJson["pushButton_Aceptar_isEnabled"] = estado.pushButton_Aceptar_isEnabled;
+
+
 
     //
     QJsonArray tablaJson;
@@ -1782,8 +2178,7 @@ bool MainWindow::LeerArchivoSesion(QJsonObject &root)
 
     QJsonParseError error;
 
-    QJsonDocument documento =
-        QJsonDocument::fromJson(datos, &error);
+    QJsonDocument documento = QJsonDocument::fromJson(datos, &error);
 
     if (error.error != QJsonParseError::NoError)
     {
@@ -1797,43 +2192,45 @@ bool MainWindow::LeerArchivoSesion(QJsonObject &root)
 
     return true;
 }
+
+
 SessionData SessionData::fromJson(const QJsonObject &root)
 {
     SessionData data;
 
     data.version = root["version"].toInt();
 
+    //--------------------------------------------------------
     QJsonObject config = root["config"].toObject();
+    data.config.recorridoTotal = config["recorridoTotal"].toDouble();
+    data.config.intervalo = config["intervalo"].toDouble();
+    data.config.encoderPPR = config["pulsosEncoder"].toInt();
+    data.config.longitudArco = config["longitudArco"].toDouble();
+    data.config.tipoRegistro =StringToTipoRegistro(config["tipoRegistro"].toString());
 
-    data.config.recorridoTotal =
-        config["recorridoTotal"].toDouble();
-
-    data.config.intervalo =
-        config["intervalo"].toDouble();
-
-    data.config.encoderPPR =
-        config["pulsosEncoder"].toInt();
-
-    data.config.longitudArco =
-        config["longitudArco"].toDouble();
-
-//    data.config.tipoRegistro =StringToTipoRegistro(config["tipoRegistro"].toString());
-
-
+    //--------------------------------------------------------
     QJsonObject estado = root["estado"].toObject();
+    data.estado.filaActual = estado["filaActual"].toInt();
+    data.estado.recorridoActual = estado["recorridoActual"].toDouble();
+    data.estado.recorridoTotal_isEnabled = estado["recorridoTotal_isEnabled"].toBool();
 
-    data.estado.recorridoActual =
-        estado["recorridoActual"].toDouble();
+    data.estado.intervalo_isEnabled = estado["intervalo_isEnabled"].toBool();
 
-    data.estado.filaActual =
-        estado["filaActual"].toInt();
+    data.estado.pushButton_Reset_isEnabled = estado["pushButton_Reset_isEnable"].toBool();
+    //
+    data.estado.pushButton_Motor_isEnabled = estado["pushButton_Motor_isEnabled"].toBool();
+    data.estado.pushButton_Motor_isChecked= estado["pushButton_Motor_isChecked"].toBool();
+    //
+    data.estado.led_motor_isEnabled= estado["led_motor_isEnabled"].toBool();
+    data.estado.led_motor_state= estado["led_motor_state"].toBool();
+    //
+    data.estado.pushButton_Inicio_isEnabled = estado["pushButton_Inicio_isEnabled"].toBool();
+    data.estado.pushButton_Pausa_isEnabled = estado["pushButton_Pausa_isEnabled"].toBool();
+    data.estado.pushButton_Parar_isEnabled = estado["pushButton_Parar_isEnabled"].toBool();
+    data.estado.pushButton_Aceptar_isEnabled = estado["pushButton_Aceptar_isEnabled"].toBool();
 
-    data.estado.motorActivo =
-        estado["motorActivo"].toBool();
-
-
+    //--------------------------------------------------------
     QJsonArray tabla = root["tabla"].toArray();
-
     for (const QJsonValue &value : tabla)
     {
         QJsonObject fila = value.toObject();
@@ -1966,6 +2363,51 @@ Micro ────────► recorrido = 3.27
                               GUI continúa mostrando
                                       3.27
 */
+
+/* así estaría quedando
+ *                     RESTAURACIÓN
+                         │
+                         ▼
+              m_restaurandoSesion = true
+                         │
+                         ├── detener autosave pendiente
+                         │
+                         ├── leer respuesta del micro
+                         │
+                         ├── modificar recorridoActual
+                         │        ↑
+                         │        └─ NO genera guardado
+                         │
+                         ├── mostrar diálogo
+                         │
+                  ┌──────┴──────────┐
+                  │                 │
+               Cancelar          Restaurar
+                  │                 │
+                  └──────┬──────────┘
+                         ▼
+              m_restaurandoSesion = false
+
+
+                    y ademas:
+                    timeout / desconexión
+                            ↓
+                    m_restaurandoSesion = false
+ *
+
+El patrón que buscamos es este:
+m_restaurandoSesion = true;
+
+BloquearSenalesGUI(true);
+
+AplicarSessionData(sessionData);
+
+BloquearSenalesGUI(false);
+
+m_restaurandoSesion = false;
+
+En tu código actual, AplicarSessionData() ya hace internamente el bloqueo y desbloqueo de señales:
+*/
 bool MainWindow::RestaurarSesion()
 {
     QJsonObject root;
@@ -1982,8 +2424,36 @@ bool MainWindow::RestaurarSesion()
 
     sessionData = SessionData::fromJson(root);
 
+    // Desde este momento no permitimos que el autosave sobrescriba la sesión que estamos evaluando.
+    // Congelar autosave durante todo el proceso.
+    m_restaurandoSesion = true;
+
+    // Cancelar cualquier guardado automático que hubiera
+    // quedado pendiente antes de iniciar la restauración.
+    // detener autosave pendiente
+    if (m_timerAutoSave)
+        m_timerAutoSave->stop();
+
+    /*
+     *  Ahora cuando llegue:
+
+        ui->recorridoActual->setValue(recorridoMicro);
+
+        sí se producirá el valueChanged(), pero:
+
+        void MainWindow::NotificarCambioEstado()
+        {
+            if (m_restaurandoSesion)
+                return;
+
+        lo absorberá y no iniciará el autosave.
+    */
     if (!SolicitarRecorridoActualMicro())
+    {
+        m_restaurandoSesion = false;
         return false;
+    }
+
 
     return true;
 }
@@ -2001,6 +2471,9 @@ bool MainWindow::RecorridoCoincide(const SessionData &data, double recorridoMicr
 bool MainWindow::ProcesarRecorridoActualMicro( double recorridoMicro)
 {
     // La GUI siempre debe mostrar la posición real actual del equipo
+
+    // Estamos todavía dentro del proceso de restauración,
+    // así que esta modificación NO debe activar autosave.
     ui->recorridoActual->setValue(recorridoMicro);
 
     const bool coinciden = RecorridoCoincide(sessionData, recorridoMicro);
@@ -2022,17 +2495,36 @@ bool MainWindow::ProcesarRecorridoActualMicro( double recorridoMicro)
             tr("Advertencia al restaurar sesión"));
     }
 
+    /*  RestaurarSesion()
+          ↓
+        m_restaurandoSesion = true
+              ↓
+        micro responde
+              ↓
+        aparece diálogo
+              ↓
+        usuario pulsa Cancelar
+              ↓
+        return false
+              ↓
+        m_restaurandoSesion SIGUE EN TRUE
+     * */
     if (dlg.exec() != QDialog::Accepted)
     {
         // Canceló la restauración,
         // pero recorridoActual ya quedó actualizado
         // con el valor real recibido del micro.
+
+        m_restaurandoSesion = false;
+
         return false;
     }
 
 
     if (!AplicarSessionData(sessionData))
     {
+        m_restaurandoSesion = false;
+
         QMessageBox::warning(
             this,
             tr("Restaurar sesión"),
@@ -2040,6 +2532,8 @@ bool MainWindow::ProcesarRecorridoActualMicro( double recorridoMicro)
 
         return false;
     }
+
+    m_restaurandoSesion = false;
 
     qDebug() << "Sesión restaurada.";
 
@@ -2080,6 +2574,9 @@ void MainWindow::TimeoutRecorridoMicro()
         return;
 
     esperandoRecorridoMicro = false;
+
+    // Terminó el intento de restauración.
+    m_restaurandoSesion = false;
 
     QMessageBox::warning(
         this,

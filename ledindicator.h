@@ -15,7 +15,7 @@ class LedIndicator: public QWidget {
     void setOnPattern(Qt::BrushStyle onPattern);
     void setOffPattern(Qt::BrushStyle offPattern);
     void setLedSize(int size);
-
+    bool isOn() const;
 
   public slots:
     void switchLedIndicator();
