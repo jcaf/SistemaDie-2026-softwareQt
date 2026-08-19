@@ -69,6 +69,67 @@ void MainWindow::buttons_enable()
 
 }
 
+//usar overloading la sgte. vez para tener 2 funciones diferentes enviando datos diferentes
+void MainWindow::USB_send_data_float(char datacode, float payload0)
+{
+    if (usbport_status == true) //added 8/set/2025
+    {
+
+        char str[30];
+        char buff[30];
+
+        str[0] = USB_DATACODE_TOKEN_BEGIN;
+        str[1] = datacode;
+        str[2] = '\0';
+        sprintf(buff,"%.2f",payload0);
+        strcat(str,buff);
+        strcat(str,"\r");
+        //
+
+        //Bug fixed 2
+        /*
+         * QByteArray data = QByteArray::fromRawData(str, strlen(str));
+            Esto no copia el buffer, solo lo referencia. Si usbCDC->write(data) se ejecuta y str deja de existir, se puede enviar basura.
+         */
+
+        //QByteArray data = QByteArray::fromRawData(str, strlen(str)   );
+        QByteArray data(str, strlen(str));
+
+        usbCDC->write(data);
+
+        qDebug()<<"USB_send_data_float"<< data<< Qt::endl;
+    }
+}
+
+void MainWindow::USB_send_data_integer(char datacode, int payload0)
+{
+    if (usbport_status == true) //added 8/set/2025
+    {
+
+        char str[30];
+        char buff[30];
+
+        str[0] = USB_DATACODE_TOKEN_BEGIN;
+        str[1] = datacode;
+        str[2] = '\0';
+        itoa(payload0, buff, 10);
+        strcat(str,buff);
+        strcat(str,"\r");
+
+        //Bug fixed 2
+        /*
+         * QByteArray data = QByteArray::fromRawData(str, strlen(str));
+            Esto no copia el buffer, solo lo referencia. Si usbCDC->write(data) se ejecuta y str deja de existir, se puede enviar basura.
+         */
+
+        //QByteArray data = QByteArray::fromRawData(str, strlen(str)   );
+        QByteArray data(str, strlen(str));
+
+        usbCDC->write(data);
+        //
+        qDebug()<<"USB_send_data_integer"<< data << Qt::endl;
+    }
+}
 
 bool MainWindow::usbport_available(void)
 {
@@ -503,7 +564,7 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
             bool foundit = false;
             double recorridoactual = ui->recorridoActual->value();
 
-            for (int i=0; i<tabla_numfila; i++)
+            for (int i=0; i<tabla_numfila_actual_marcado; i++)
             {
                 QTableWidgetItem *item = tableWidget->item(i, 0);
                 if (item)
@@ -519,34 +580,34 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
                         tableWidget->setFocus(Qt::OtherFocusReason);
                         foundit = true;
 
-                        ui->pushButton_Inicio->setEnabled(true);
+                        //ui->pushButton_Inicio->setEnabled(true);
 
                         break;
                     }
                 }
             }
 
-            if ( (tabla_numfila < TABLA_NUM_FILAS_TOTALES) && (!foundit))
+            if ( (tabla_numfila_actual_marcado < TABLA_NUM_FILAS_TOTALES) && (!foundit))
             {
 
                 //QString str_recorrido_actual = QString::number(recorridoactual,'f',2);
                 //QTableWidgetItem* text = new QTableWidgetItem();
                 //text->setText(str_recorrido_actual);
-                //tableWidget->setItem(tabla_numfila,0, text);
+                //tableWidget->setItem(tabla_numfila_actual_marcado,0, text);
 
-                QTableWidgetItem *item = tableWidget->item(tabla_numfila, 0);//obtener el puntero actual
+                QTableWidgetItem *item = tableWidget->item(tabla_numfila_actual_marcado, 0);//obtener el puntero actual
                 if (item)
                 {
                     item->setText(QString::number(recorridoactual,'f',2));
                     tableWidget_columna_setEnabled(0,false);
 
                     // Resaltar la fila actual
-                    tableWidget->selectRow(tabla_numfila);
+                    tableWidget->selectRow(tabla_numfila_actual_marcado);
                     tableWidget->setFocus(Qt::OtherFocusReason);
 
-                    ui->pushButton_Inicio->setEnabled(true);
+                    //ui->pushButton_Inicio->setEnabled(true);
 
-                    tabla_numfila++;
+                    tabla_numfila_actual_marcado++;
                 }
             }
 
@@ -554,9 +615,34 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
             ui->pushButton_Parar->setEnabled(true);
 
             //nuevo
-            if (!ui->pushButton_Inicio->isEnabled() )//added
+            //--------------------------------------------------------------------------
+            //forward
+            // [INICIO]-> led motor ON
+
+            // Si boton ACEPTAR está disable, significa que es controlado por INICIO, entonces en cada intervalo debe de desactivarse el led_motor
+
+
+            // //reverse
+            // cuando [INICIO] esta deshabiltado previamente, y presiona buton motor y al pasar por el intervalo no debe de deshabilitarse el led motor, debe permanecer ON
+
+            // Si boton ACEPTAR esta EANBLE, entonces el led_motor no apaga en los intervalos
+            // todo depende del sentido de giro puesto por el operario
+            //
+            //--------------------------------------------------------------------------
+            if ((!ui->pushButton_Aceptar->isEnabled()) && (ui->pushButton_Inicio->isEnabled()) )//added
+            {
+                led_motor->setState(true);
+                qDebug()<<"led_motor->setState(true);"<< Qt::endl;
+            }
+
+            if ( (!ui->pushButton_Aceptar->isEnabled()) && (!ui->pushButton_Inicio->isEnabled()) ) //added
             {
                 led_motor->setState(false);
+                qDebug()<<"led_motor->setState(false);"<< Qt::endl;
+                //
+                ui->pushButton_Inicio->setEnabled(true);//volver habilitar [INICIO]
+
+
             }
 
             qDebug()<<"USB_DATACODE_INTERVALO_COMPLETO: "<<Qt::endl;
@@ -593,7 +679,7 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
             qDebug()<<"+++++++++++++ RESET BOARD +++++++++++++++"<< payload_i<< Qt::endl;
 
             break;
-        case USB_DATACODE_CONTROL_ACTIVATED:
+        case USB_DATACODE_CONTROL_ACTIVATED://no estoy enviando desde el MCU
             payload_i = atoi(USB_payload_char);
             qDebug()<<"USB_DATACODE_CONTROL_ACTIVATED"<< payload_i<< Qt::endl;
 
@@ -941,67 +1027,6 @@ bool MainWindow::LeerConfiguracionTXT(void)
 }
 
 
-//usar overloading la sgte. vez para tener 2 funciones diferentes enviando datos diferentes
-void MainWindow::USB_send_data_float(char datacode, float payload0)
-{
-    if (usbport_status == true) //added 8/set/2025
-    {
-
-        char str[30];
-        char buff[30];
-
-        str[0] = USB_DATACODE_TOKEN_BEGIN;
-        str[1] = datacode;
-        str[2] = '\0';
-        sprintf(buff,"%.2f",payload0);
-        strcat(str,buff);
-        strcat(str,"\r");
-        //
-
-        //Bug fixed 2
-        /*
-         * QByteArray data = QByteArray::fromRawData(str, strlen(str));
-            Esto no copia el buffer, solo lo referencia. Si usbCDC->write(data) se ejecuta y str deja de existir, se puede enviar basura.
-         */
-
-        //QByteArray data = QByteArray::fromRawData(str, strlen(str)   );
-        QByteArray data(str, strlen(str));
-
-        usbCDC->write(data);
-
-        qDebug()<<"USB_send_data_float"<< data<< Qt::endl;
-    }
-}
-
-void MainWindow::USB_send_data_integer(char datacode, int payload0)
-{
-    if (usbport_status == true) //added 8/set/2025
-    {
-
-        char str[30];
-        char buff[30];
-
-        str[0] = USB_DATACODE_TOKEN_BEGIN;
-        str[1] = datacode;
-        str[2] = '\0';
-        itoa(payload0, buff, 10);
-        strcat(str,buff);
-        strcat(str,"\r");
-
-        //Bug fixed 2
-        /*
-         * QByteArray data = QByteArray::fromRawData(str, strlen(str));
-            Esto no copia el buffer, solo lo referencia. Si usbCDC->write(data) se ejecuta y str deja de existir, se puede enviar basura.
-         */
-
-        //QByteArray data = QByteArray::fromRawData(str, strlen(str)   );
-        QByteArray data(str, strlen(str));
-
-        usbCDC->write(data);
-        //
-        qDebug()<<"USB_send_data_integer"<< data << Qt::endl;
-    }
-}
 
 void MainWindow::tableWidget_columna_setEnabled(int col, bool state)
 {
@@ -1255,13 +1280,15 @@ void MainWindow::ConfigurarEstadoInicialEnsayo()
     ui->pushButton_Inicio->setEnabled(true);
     ui->pushButton_Parar->setEnabled(true);
     ui->pushButton_Reset->setEnabled(false);
+
     //added 2026
-    ui->pushButton_Motor->setChecked(true);
-    if (ui->pushButton_Motor->isChecked())
-    {
-        ui->pushButton_Motor->setChecked(false);
-        led_motor->setState(false);
-    }
+    //     ui->pushButton_Motor->setChecked(true);
+
+    // if (ui->pushButton_Motor->isChecked())
+    // {
+    //     ui->pushButton_Motor->setChecked(false);//tengo que enviar la orden al micro que pare
+    //     led_motor->setState(false);
+    // }
 }
 void MainWindow::EnviarConfiguracionAlMicro()
 {
@@ -1269,25 +1296,25 @@ void MainWindow::EnviarConfiguracionAlMicro()
     //QThread::msleep(10);
     USB_send_data_float(USB_DATACODE_SET_INTERVALO, itv);
     //QThread::msleep(10);
-    USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
-    //qDebug()<<"fin enviar datos al microcontrolador..."<<Qt::endl;
-
 }
 
 void MainWindow::on_pushButton_Aceptar_clicked()
 {
     RECORRIDOTOTAL = ui->recorridoTotal->value();
     itv = ui->intervalo->value();
+
     BloquearSenalesGUI(true);
 
     CrearTabla(RECORRIDOTOTAL, itv);
 
-    tabla_numfila = 0; //reset
+    tabla_numfila_actual_marcado = 0; //reset
     //--------------------------------------------
     ConfigurarEstadoInicialEnsayo();
 
     EnviarConfiguracionAlMicro();
 
+    tableWidget->clearSelection();
+    tableWidget->clearFocus();
     //--------------------------------------------
     BloquearSenalesGUI(false);
 }
@@ -1392,6 +1419,33 @@ void MainWindow::on_radioButton_L_clicked()
 }
 
 
+void MainWindow::MCU_motor_set_state(bool state)
+{
+    if (state == true)
+    {
+        USB_send_data_integer(USB_DATACODE_SET_MOTOR, MOTOR_ON);
+        qDebug()<<"USB_send_data_integer(USB_DATACODE_SET_MOTOR, MOTOR_ON);";
+    }
+    else
+    {
+        USB_send_data_integer(USB_DATACODE_SET_MOTOR, MOTOR_OFF);
+        qDebug()<<"USB_DATACODE_SET_MOTOR, MOTOR_OFF";
+    }
+}
+void MainWindow::GUI_ledmotor_set_state(bool state)
+{
+    if (state == true)
+    {
+        led_motor->setState(true);
+        qDebug()<<"led_motor->setState(true);";
+    }
+    else
+    {
+        led_motor->setState(false);
+        qDebug()<<"led_motor->setState(false);";
+    }
+}
+
 void MainWindow::on_pushButton_Parar_clicked()
 {
     //deshabilitar los controles
@@ -1433,17 +1487,24 @@ void MainWindow::on_pushButton_Inicio_clicked()
     ui->pushButton_Inicio->setEnabled(false);
     ui->pushButton_Pause->setEnabled(true);
     ui->pushButton_Parar->setEnabled(true);
-    led_motor->setState(true);
+
 
     //new added 2026
-    ui->pushButton_Motor->setChecked(false);
-    ui->pushButton_Motor->setEnabled(false);
 
+    ui->pushButton_Motor->blockSignals(true);
+    ui->pushButton_Motor->setChecked(false);//solo si conmuta el estado del boton, disparara intencionalmente a on_pushButton_Motor_toggled(bool checked)
+    ui->pushButton_Motor->setEnabled(false);
+    ui->pushButton_Motor->blockSignals(false);
+
+    //MCU_motor_set_state(true);//firmware activa el motor al recibir INICIO
+    GUI_ledmotor_set_state(true);
 
     USB_send_data_integer(USB_DATACODE_SET_EXECUTION, INICIO);
     //
     qDebug()<<"on_pushButton_Inicio_clicked"<< Qt::endl;
 
+    //el microcontrolador cuando recibe inicio levanta el flag control_recorrido = 1;
+    //USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
 }
 
 void MainWindow::on_pushButton_Pause_clicked()
@@ -1456,7 +1517,7 @@ void MainWindow::on_pushButton_Pause_clicked()
 
     USB_send_data_integer(USB_DATACODE_SET_EXECUTION, PAUSA);
 
-    tabla_update_cell_posicion(tabla_numfila);
+    tabla_update_cell_posicion(tabla_numfila_actual_marcado);
     //
     qDebug()<<"on_pushButton_Pause_clicked"<< Qt::endl;
 
@@ -1474,23 +1535,11 @@ void MainWindow::on_pushButton_Motor_clicked()
 {
 }
 
+
 void MainWindow::on_pushButton_Motor_toggled(bool checked)
 {
-    if (checked == true)
-    {
-        USB_send_data_integer(USB_DATACODE_SET_MOTOR, MOTOR_ON);
-        led_motor->setState(true);
-        qDebug()<<"MOTOR_ON";
-//added 15/06/26
-//USB_send_data_integer(USB_DATACODE_CONTROL_ACTIVATED,0);
-    }
-    else
-    {
-        USB_send_data_integer(USB_DATACODE_SET_MOTOR, MOTOR_OFF);
-        led_motor->setState(false);
-        qDebug()<<"MOTOR_OFF";
-    }
-
+    MCU_motor_set_state(checked);
+    GUI_ledmotor_set_state(checked);
 }
 
 
@@ -1832,7 +1881,7 @@ SessionData MainWindow::ObtenerSessionData()
     sessionData.config.encoderPPR = configuracionSistema.encoderPPR;
     //sessionData.config.tipoRegistro en cada evento de seleccion es directamente acualizado
     //
-    sessionData.estado.filaActual = tabla_numfila;
+    sessionData.estado.tabla_numfila_actual_marcado = tabla_numfila_actual_marcado;
     //
     sessionData.estado.recorridoActual = ui->recorridoActual->value();
     sessionData.estado.recorridoTotal_isEnabled = ui->recorridoTotal->isEnabled();
@@ -1954,11 +2003,14 @@ void MainWindow::AplicarTabla(const QVector<FilaMedicion> &tabla)
 void MainWindow::AplicarEstado(const Estado &estado)
 {
 
-    tabla_numfila = estado.filaActual;
-    // Resaltar la fila actual
-    // tableWidget->selectRow(tabla_numfila);
-    // tableWidget->setFocus(Qt::OtherFocusReason);
-    // //
+    tabla_numfila_actual_marcado = estado.tabla_numfila_actual_marcado;
+
+    if (tabla_numfila_actual_marcado > 0)
+    {
+        //Resaltar la fila actual
+        tableWidget->selectRow(tabla_numfila_actual_marcado);
+        tableWidget->setFocus(Qt::OtherFocusReason);
+    }
 
     ui->recorridoTotal->setEnabled(estado.recorridoTotal_isEnabled);
     ui->intervalo->setEnabled(estado.intervalo_isEnabled);
@@ -2083,7 +2135,7 @@ QJsonObject SessionData::toJson() const
     //-----------------------------
 
     QJsonObject estadoJson;
-    estadoJson["filaActual"] = estado.filaActual;
+    estadoJson["filaActual"] = estado.tabla_numfila_actual_marcado;
     estadoJson["recorridoActual"] = estado.recorridoActual;
 
     estadoJson["recorridoTotal_isEnabled"] = estado.recorridoTotal_isEnabled;
@@ -2210,7 +2262,7 @@ SessionData SessionData::fromJson(const QJsonObject &root)
 
     //--------------------------------------------------------
     QJsonObject estado = root["estado"].toObject();
-    data.estado.filaActual = estado["filaActual"].toInt();
+    data.estado.tabla_numfila_actual_marcado = estado["filaActual"].toInt();
     data.estado.recorridoActual = estado["recorridoActual"].toDouble();
     data.estado.recorridoTotal_isEnabled = estado["recorridoTotal_isEnabled"].toBool();
 

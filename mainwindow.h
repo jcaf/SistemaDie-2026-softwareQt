@@ -166,7 +166,7 @@ private:
 
     LedIndicator *led_motor = nullptr;
     LedIndicator *led_enlace = nullptr;
-    int tabla_numfila;
+    int tabla_numfila_actual_marcado;
     int TABLA_NUM_FILAS_TOTALES;
     float RECORRIDOTOTAL;
     float itv;
@@ -228,6 +228,12 @@ private:
     //QList<QLineEdit*>      m_lineEdits;
     //QList<QCheckBox*>      m_checkBoxes;
     QList<QPushButton*> m_pushButtons;
+
+
+
+    void MCU_motor_set_state(bool state);
+
+    void GUI_ledmotor_set_state(bool state);
 
 };
 #endif // MAINWINDOW_H

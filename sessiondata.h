@@ -27,8 +27,7 @@
 
     struct Estado
     {
-
-        int filaActual = 0;
+        int tabla_numfila_actual_marcado = 0;
         //
         double recorridoActual = 0.0;
         bool recorridoTotal_isEnabled = false;
@@ -46,8 +45,6 @@
         bool pushButton_Pausa_isEnabled= false;
         bool pushButton_Parar_isEnabled = false;
         bool pushButton_Aceptar_isEnabled = false;
-
-
     };
 
     struct FilaMedicion
