@@ -283,6 +283,9 @@
        <pointsize>14</pointsize>
       </font>
      </property>
+     <property name="minimum">
+      <double>0.000000000000000</double>
+     </property>
      <property name="maximum">
       <double>99999999999.990005493164063</double>
      </property>

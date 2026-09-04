@@ -21,6 +21,8 @@
  *
  *find_package(Qt6 REQUIRED COMPONENTS SerialPort)
  *target_link_libraries(untitled PRIVATE Qt6::SerialPort)
+ *
+ *RTM 3/09/2026 para entregar a Wilfredo
  */
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
@@ -631,7 +633,7 @@ void MainWindow::USB_commands(char USB_DATACODE, char *USB_payload_char )
             //--------------------------------------------------------------------------
             if ((!ui->pushButton_Aceptar->isEnabled()) && (ui->pushButton_Inicio->isEnabled()) )//added
             {
-                led_motor->setState(true);
+                //led_motor->setState(true);
                 qDebug()<<"led_motor->setState(true);"<< Qt::endl;
             }
 
@@ -804,6 +806,7 @@ MainWindow::MainWindow(QWidget *parent)
     // -------------------------------------------------------------
     //en el GUI, quedo con el nombre actionConstantes a la opcion "Constantes" y es de tipo QAction
     connect(ui->actionConstantes, &QAction::triggered, this, &MainWindow::abrirDialogoConstantes);
+
     LeerConfiguracionTXT();
     // -------------------------------------------------------------
     ui->radioButton_L->hide();
@@ -917,18 +920,48 @@ MainWindow::~MainWindow()
 }
 void MainWindow::abrirDialogoConstantes()
 {
-    config->setConfiguracion(configuracionSistema);
+    config->setConfiguracionToGUI(configuracionSistema);
 
-    if(config->exec() == QDialog::Accepted)
+    if (config->exec() != QDialog::Accepted)
+        return;
+
+    const auto nuevaConfiguracion = config->getConfiguracionFromGUI();
+
+    if (nuevaConfiguracion.encoderPPR <= 0)
     {
-        configuracionSistema =config->configuracion();
+        QMessageBox::warning(
+            this,
+            tr("Configuración inválida"),
+            tr("Los pulsos por revolución del encoder deben ser mayores que 0.")
+            );
 
-        USB_send_data_integer(USB_DATACODE_SET_ENCODER_PPR,configuracionSistema.encoderPPR);
-        USB_send_data_float(USB_DATACODE_SET_LONGITUD_ARCO,configuracionSistema.longitudArco);
-
-        GuardarConfiguracionTXT();
-        NotificarCambioEstado();
+        return;
     }
+
+    if (nuevaConfiguracion.longitudArco <= 0.0f)
+    {
+        QMessageBox::warning(
+            this,
+            tr("Configuración inválida"),
+            tr("La longitud de arco debe ser mayor que 0.")
+            );
+
+        return;
+    }
+
+    // Sólo ahora reemplazamos la configuración activa.
+    configuracionSistema = nuevaConfiguracion;
+
+    USB_send_data_integer(
+        USB_DATACODE_SET_ENCODER_PPR,
+        configuracionSistema.encoderPPR);
+
+    USB_send_data_float(
+        USB_DATACODE_SET_LONGITUD_ARCO,
+        configuracionSistema.longitudArco);
+
+    GuardarConfiguracionTXT();
+    NotificarCambioEstado();
 }
 /*
  * RestaurarSesion()
@@ -1017,7 +1050,7 @@ bool MainWindow::LeerConfiguracionTXT(void)
         configuracionSistema.longitudArco = LongitudArco.toFloat();
         qDebug()<< "LongitudArco" << LongitudArco;
 
-        config->setConfiguracion(configuracionSistema);
+        config->setConfiguracionToGUI(configuracionSistema);
         codret = true;
     }
 
@@ -1303,6 +1336,24 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     RECORRIDOTOTAL = ui->recorridoTotal->value();
     itv = ui->intervalo->value();
 
+    QStringList errores;
+
+    if (RECORRIDOTOTAL <= 0.0)
+        errores << tr("El Recorrido Total debe ser mayor que 0.");
+
+    if (itv <= 0.0)
+        errores << tr("El intervalo debe ser mayor que 0.");
+
+    if (!errores.isEmpty())
+    {
+        QMessageBox::warning(
+            this,
+            tr("Configuración inválida"),
+            errores.join("\n"));
+
+        return;
+    }
+
     BloquearSenalesGUI(true);
 
     CrearTabla(RECORRIDOTOTAL, itv);
@@ -1317,6 +1368,8 @@ void MainWindow::on_pushButton_Aceptar_clicked()
     tableWidget->clearFocus();
     //--------------------------------------------
     BloquearSenalesGUI(false);
+
+
 }
 
 void MainWindow::tableWidget_enable_for_SP()
@@ -1448,11 +1501,12 @@ void MainWindow::GUI_ledmotor_set_state(bool state)
 
 void MainWindow::on_pushButton_Parar_clicked()
 {
-    //deshabilitar los controles
+
     ui->recorridoTotal->setEnabled(true);
     ui->intervalo->setEnabled(true);
     ui->pushButton_Reset->setEnabled(true);
     ui->pushButton_Motor->setEnabled(true);
+    ui->pushButton_Motor->setChecked(false);
     //
     ui->radioButton_SP->setEnabled(true);
     ui->radioButton_NC->setEnabled(true);
@@ -1472,12 +1526,7 @@ void MainWindow::on_pushButton_Parar_clicked()
 
     USB_send_data_integer(USB_DATACODE_SET_EXECUTION, PARAR);
 
-    // if (tabla_numfila < TABLA_NUM_FILAS_TOTALES)
-    // {
-    //     tabla_update_cell_posicion(tabla_numfila);
-    // }
 
-    //
     qDebug()<<"on_pushButton_Parar_clicked"<< Qt::endl;
 
 }
@@ -1981,7 +2030,7 @@ void MainWindow::AplicarConfiguracion(const Configuracion &configuracion)
     //
     configuracionSistema.encoderPPR = configuracion.encoderPPR;
     configuracionSistema.longitudArco = configuracion.longitudArco;
-    config->setConfiguracion(configuracionSistema);
+    config->setConfiguracionToGUI(configuracionSistema);
 }
 
 void MainWindow::AplicarTabla(const QVector<FilaMedicion> &tabla)

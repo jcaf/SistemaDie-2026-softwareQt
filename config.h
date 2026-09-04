@@ -16,8 +16,8 @@ public:
     explicit Config(QWidget *parent = nullptr);
     ~Config();
 
-    void setConfiguracion(const ConfiguracionSistema &cfg);
-    ConfiguracionSistema configuracion() const;
+    void setConfiguracionToGUI(const ConfiguracionSistema &cfg);
+    ConfiguracionSistema getConfiguracionFromGUI() const;
 
 private slots:
     void on_buttonBox_accepted();

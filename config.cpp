@@ -5,14 +5,14 @@
 #include <QString>
 #include "mainwindow.h"
 
-void Config::setConfiguracion(const ConfiguracionSistema &cfg)
+void Config::setConfiguracionToGUI(const ConfiguracionSistema &cfg)
 {
     ui->encoder_PPR->setValue(cfg.encoderPPR);
 
     ui->longitudArcoPorResolucion->setValue(cfg.longitudArco);
 }
 
-ConfiguracionSistema Config::configuracion() const
+ConfiguracionSistema Config::getConfiguracionFromGUI() const
 {
     ConfiguracionSistema cfg;
 

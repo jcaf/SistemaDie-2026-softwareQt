@@ -101,6 +101,9 @@
       <pointsize>14</pointsize>
      </font>
     </property>
+    <property name="minimum">
+     <number>1</number>
+    </property>
     <property name="maximum">
      <number>99999999</number>
     </property>
@@ -121,6 +124,9 @@
     </property>
     <property name="decimals">
      <number>2</number>
+    </property>
+    <property name="minimum">
+     <double>1.000000000000000</double>
     </property>
     <property name="maximum">
      <double>9999999.990000000223517</double>
