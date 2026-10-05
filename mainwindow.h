@@ -99,6 +99,7 @@ public:
     bool usbport_status_last;
 
 private slots:
+    void abrirDialogoParametros();
     void readSerial();
 
     //void on_actionConstantes_triggered();
@@ -146,6 +147,8 @@ private slots:
 private:
     Ui::MainWindow *ui;
 
+    double medidaNC = 0.125;
+    double medidaNL = 0.63;
     /*
      * 1a86:7523 QinHeng Electronics CH340 serial converter
      */

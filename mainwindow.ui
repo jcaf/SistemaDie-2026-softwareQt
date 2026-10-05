@@ -579,9 +579,10 @@
      </font>
     </property>
     <property name="title">
-     <string>Config</string>
+     <string>Configuración</string>
     </property>
     <addaction name="actionConstantes"/>
+    <addaction name="actionPar_metros"/>
    </widget>
    <widget class="QMenu" name="menuSesi_n">
     <property name="title">
@@ -595,7 +596,7 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionConstantes">
    <property name="text">
-    <string>Constantes</string>
+    <string>Desplazamiento</string>
    </property>
    <property name="font">
     <font>
@@ -606,6 +607,16 @@
   <action name="actionRestaurar_ultima">
    <property name="text">
     <string>Restaurar ultima</string>
+   </property>
+   <property name="font">
+    <font>
+     <pointsize>12</pointsize>
+    </font>
+   </property>
+  </action>
+  <action name="actionPar_metros">
+   <property name="text">
+    <string>Parámetros</string>
    </property>
    <property name="font">
     <font>

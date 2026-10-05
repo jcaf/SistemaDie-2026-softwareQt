@@ -36,7 +36,7 @@
 #include <QSaveFile>
 #include <QTextStream>
 #include "dialogorestaurarsesion.h"
-
+#include "parametros.h"
 using namespace OpenXLSX;
 
 #define TABLA_NUMBER_COLUMNAS 7//9 se elimina Vl y Rl
@@ -791,12 +791,13 @@ void MainWindow::readSerial()
     }
 }
 
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    connect(ui->actionPar_metros, &QAction::triggered, this, &MainWindow::abrirDialogoParametros);
 
     config = new Config(this);
     connect(ui->actionRestaurar_ultima, &QAction::triggered, this, &MainWindow::abrirDialogoRestaurarSesion);
@@ -918,6 +919,44 @@ MainWindow::~MainWindow()
     delete tableWidget;
 
 }
+void MainWindow::abrirDialogoParametros()
+{
+    Parametros ventanaParametros(this);
+
+    // Mostrar los valores actualmente configurados
+    ventanaParametros.setMedidas(medidaNC, medidaNL);
+
+    // Si pulsa Cancel, no modificamos absolutamente nada
+    if (ventanaParametros.exec() != QDialog::Accepted)
+        return;
+
+    // Obtener los nuevos valores
+    double nuevaMedidaNC = ventanaParametros.getMedidaNC();
+    double nuevaMedidaNL = ventanaParametros.getMedidaNL();
+
+    // Validación
+    if (nuevaMedidaNC <= 0.0 || nuevaMedidaNL <= 0.0)
+    {
+        QMessageBox::warning(
+            this,
+            tr("Parámetros inválidos"),
+            tr("Las medidas NC y NL deben ser mayores que 0.")
+        );
+
+        return;
+    }
+
+    // Sólo después de validar reemplazamos los valores activos
+    medidaNC = nuevaMedidaNC;
+    medidaNL = nuevaMedidaNL;
+
+    // Guardar junto con el resto de la configuración
+    GuardarConfiguracionTXT();
+
+    qDebug() << "medidaNC =" << medidaNC;
+    qDebug() << "medidaNL =" << medidaNL;
+}
+
 void MainWindow::abrirDialogoConstantes()
 {
     config->setConfiguracionToGUI(configuracionSistema);
@@ -1010,14 +1049,16 @@ bool MainWindow::GuardarConfiguracionTXT()
     // Opcional: Para asegurar que el float se guarde con 2 decimales sin notación científica
     // out << Qt::fixed << qSetRealNumberPrecision(2);
     out << configuracionSistema.encoderPPR << Qt::endl;
-    out << configuracionSistema.longitudArco;
+    out << configuracionSistema.longitudArco<< Qt::endl;
 
+    out << medidaNC << Qt::endl;
+    out << medidaNL;
     //return true;
     // Confirmar los cambios atómicamente en disco
     return file.commit();
 }
 
-
+/*
 bool MainWindow::LeerConfiguracionTXT(void)
 {
     bool codret=false;
@@ -1058,8 +1099,79 @@ bool MainWindow::LeerConfiguracionTXT(void)
     file.close();
     return codret;
 }
+*/
+bool MainWindow::LeerConfiguracionTXT(void)
+{
+    bool codret = false;
 
+    QString filename = "config.txt";
+    QFile file(filename);
 
+    if (!file.exists())
+    {
+        qDebug() << "NO existe el archivo" << filename;
+        return false;
+    }
+
+    qDebug() << "Archivo" << filename << "encontrado...";
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        QMessageBox::information(
+            this,
+            "error",
+            file.errorString());
+
+        return false;
+    }
+
+    QTextStream in(&file);
+
+    // ------------------------------------------------
+    // Encoder PPR
+    // ------------------------------------------------
+    QString encoderPPR = in.readLine();
+
+    if (!encoderPPR.isEmpty())
+        configuracionSistema.encoderPPR = encoderPPR.toInt();
+
+    // ------------------------------------------------
+    // Longitud de arco
+    // ------------------------------------------------
+    QString longitudArco = in.readLine();
+
+    if (!longitudArco.isEmpty())
+        configuracionSistema.longitudArco = longitudArco.toFloat();
+
+    // ------------------------------------------------
+    // Medida NC
+    // ------------------------------------------------
+    QString medidaNCStr = in.readLine();
+
+    if (!medidaNCStr.isEmpty())
+        medidaNC = medidaNCStr.toDouble();
+
+    // ------------------------------------------------
+    // Medida NL
+    // ------------------------------------------------
+    QString medidaNLStr = in.readLine();
+
+    if (!medidaNLStr.isEmpty())
+        medidaNL = medidaNLStr.toDouble();
+
+    file.close();
+
+    qDebug() << "encoderPPR =" << configuracionSistema.encoderPPR;
+    qDebug() << "longitudArco =" << configuracionSistema.longitudArco;
+    qDebug() << "medidaNC =" << medidaNC;
+    qDebug() << "medidaNL =" << medidaNL;
+
+    config->setConfiguracionToGUI(configuracionSistema);
+
+    codret = true;
+
+    return codret;
+}
 
 void MainWindow::tableWidget_columna_setEnabled(int col, bool state)
 {
@@ -1125,7 +1237,8 @@ void MainWindow::onCellChanged(int row, int column)
             if (okA && okB && a!= 0.0 )
             {
                 //=4*PI()*0.125*(E4/B4)
-                double Rnc = 4 * M_PI * 0.125 * (b/a);
+                //double Rnc = 4 * M_PI * 0.125 * (b/a);
+                double Rnc = 4 * M_PI * medidaNC * (b/a);
 
                 //Buf fixed 6
                 /*
@@ -1178,7 +1291,8 @@ void MainWindow::onCellChanged(int row, int column)
             if (okA && okB && a!= 0.0)
             {
                 //=4*PI()*0.765*(E4/B4) //corregido a 0.63
-                double Rnl = 4 * M_PI * 0.63 * (b/a);
+                //double Rnl = 4 * M_PI * 0.63 * (b/a);
+                double Rnl = 4 * M_PI * medidaNL * (b/a);
                 //tableWidget->item(row, TABLEPOSC_Rnl_ohm_m)->setText(QString::number(Rnl));
                 if (target)
                 {
