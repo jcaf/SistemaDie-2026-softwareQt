@@ -7,17 +7,17 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>230</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Parámeros</string>
   </property>
   <widget class="QDialogButtonBox" name="buttonBox">
    <property name="geometry">
     <rect>
-     <x>100</x>
-     <y>220</y>
+     <x>80</x>
+     <y>180</y>
      <width>181</width>
      <height>32</height>
     </rect>
@@ -32,8 +32,8 @@
   <widget class="QDoubleSpinBox" name="medidaNC">
    <property name="geometry">
     <rect>
-     <x>260</x>
-     <y>100</y>
+     <x>200</x>
+     <y>60</y>
      <width>91</width>
      <height>31</height>
     </rect>
@@ -56,8 +56,8 @@
   <widget class="QDoubleSpinBox" name="medidaNL">
    <property name="geometry">
     <rect>
-     <x>260</x>
-     <y>150</y>
+     <x>200</x>
+     <y>110</y>
      <width>91</width>
      <height>31</height>
     </rect>
@@ -83,9 +83,9 @@
   <widget class="QLabel" name="label">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>100</y>
-     <width>111</width>
+     <x>70</x>
+     <y>70</y>
+     <width>121</width>
      <height>20</height>
     </rect>
    </property>
@@ -95,15 +95,15 @@
     </font>
    </property>
    <property name="text">
-    <string>Medida NC:</string>
+    <string>Constante NC:</string>
    </property>
   </widget>
   <widget class="QLabel" name="label_2">
    <property name="geometry">
     <rect>
-     <x>90</x>
-     <y>150</y>
-     <width>111</width>
+     <x>70</x>
+     <y>120</y>
+     <width>121</width>
      <height>20</height>
     </rect>
    </property>
@@ -113,15 +113,15 @@
     </font>
    </property>
    <property name="text">
-    <string>Medida NL:</string>
+    <string>Constante NL:</string>
    </property>
   </widget>
   <widget class="QGroupBox" name="groupBox">
    <property name="geometry">
     <rect>
-     <x>50</x>
-     <y>70</y>
-     <width>321</width>
+     <x>30</x>
+     <y>20</y>
+     <width>331</width>
      <height>141</height>
     </rect>
    </property>
