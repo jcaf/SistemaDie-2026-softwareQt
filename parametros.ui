@@ -52,6 +52,9 @@
    <property name="singleStep">
     <double>0.000100000000000</double>
    </property>
+   <property name="stepType">
+    <enum>QAbstractSpinBox::StepType::DefaultStepType</enum>
+   </property>
   </widget>
   <widget class="QDoubleSpinBox" name="medidaNL">
    <property name="geometry">
@@ -119,8 +122,8 @@
   <widget class="QGroupBox" name="groupBox">
    <property name="geometry">
     <rect>
-     <x>30</x>
-     <y>20</y>
+     <x>40</x>
+     <y>30</y>
      <width>331</width>
      <height>141</height>
     </rect>
@@ -129,6 +132,12 @@
     <string>Parámetros NC/ NL</string>
    </property>
   </widget>
+  <zorder>groupBox</zorder>
+  <zorder>buttonBox</zorder>
+  <zorder>medidaNC</zorder>
+  <zorder>medidaNL</zorder>
+  <zorder>label</zorder>
+  <zorder>label_2</zorder>
  </widget>
  <resources/>
  <connections>
